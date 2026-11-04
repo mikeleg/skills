@@ -1,6 +1,6 @@
 {
   "name": "mikeleg-skills",
-  "description": "Agent skills by mikeleg: shape-it, log-task-hours, reply-draft",
+  "description": "Agent skills by mikeleg: shape-it, log-task-hours, reply-draft, implement, tdd",
   "version": "0.1.0",
   "license": "MIT",
   "author": { "name": "mikeleg" },
