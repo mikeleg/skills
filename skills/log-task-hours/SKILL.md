@@ -9,7 +9,7 @@ Registra le ore effettive su un ticket Azure DevOps (org di default di `az devop
 1. **Ticket**: da `$ARGUMENTS`; altrimenti dalla conversazione corrente, dal nome del branch o da cartelle tipo `Ticket-<id>`. Se restano più candidati o nessuno, chiedi quale (una domanda).
 2. **Padre**: `az boards work-item show --id <id> --expand relations -o json` → `System.TeamProject`, `System.AreaPath`, `System.IterationPath`, `System.Title`, figli (`System.LinkTypes.Hierarchy-Forward`).
 3. **Ore già registrate**: per ogni Task figlio leggi `Custom.Effectivedate` (o `System.CreatedDate` se assente); prendi la più recente come `<dal>`, per non contare due volte lo stesso lavoro.
-4. **Ore lavorate**: `python ~/.claude/skills/log-task-hours/active_session_time.py <id> [--dal <dal>]`. Somma il tempo attivo delle sessioni Claude Code che citano il ticket (pause >15 min escluse), arrotondato per eccesso a **multipli di 0.5** (minimo 0.5). Se TOTALE è 0, dillo e chiedi le ore.
+4. **Ore lavorate**: `python <cartella di questa skill>/active_session_time.py <id> [--dal <dal>]` (lo script sta accanto a questo SKILL.md). Somma il tempo attivo delle sessioni Claude Code che citano il ticket (pause >15 min escluse), arrotondato per eccesso a **multipli di 0.5** (minimo 0.5). Se TOTALE è 0, dillo e chiedi le ore.
 5. **Titolo** — scelto con le regole Clean Code sui nomi significativi:
    - **rivela l'intento**: dice cosa è stato fatto e su cosa, senza bisogno di aprire il ticket (verbo/azione + oggetto di dominio: "Ripristino impianti LA RUSSA a mai rivalutati");
    - **linguaggio di dominio**: usa i termini del ticket e del business (impianto, verifica, amministratore, rivalutazione ISTAT…), non dettagli tecnici superflui;
