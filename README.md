@@ -17,3 +17,9 @@ skills/
   <skill-name>/
     SKILL.md
 ```
+
+## Install as a Claude Code plugin
+
+```
+/plugin install mikeleg-skills --marketplace mikeleg/skills
+```
