@@ -1,0 +1,9 @@
+{
+  "name": "cruscotto",
+  "version": "0.1.0",
+  "description": "Pannello laterale con limiti d'uso, contesto e subagent (/cruscotto).",
+  "license": "MIT",
+  "author": { "name": "mikeleg" },
+  "repository": "https://github.com/mikeleg/skills",
+  "types": "./types/index.d.ts"
+}

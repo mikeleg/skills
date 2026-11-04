@@ -1,12 +1,19 @@
 {
   "name": "mikeleg",
-  "owner": { "name": "mikeleg" },
+  "owner": {
+    "name": "mikeleg"
+  },
   "description": "Agent skills by mikeleg",
   "plugins": [
     {
       "name": "mikeleg-skills",
       "source": "./",
       "description": "Agent skills by mikeleg: shape-it, log-task-hours, reply-draft, implement, tdd"
+    },
+    {
+      "name": "cruscotto",
+      "source": "./mods/cruscotto",
+      "description": "Side pane with usage limits, context and subagents (/cruscotto)."
     }
   ]
 }

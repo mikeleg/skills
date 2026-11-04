@@ -12,6 +12,12 @@ Agent skills by mikeleg, installable with [skills.sh](https://skills.sh) or as a
 | `implement` | Implements a spec or set of tickets, using `tdd` where it fits, then simplifies the code, reviews it with `/code-review` and commits. | Claude Code (uses the `/simplify` and `/code-review` skills when available). |
 | `tdd` | Fixes a bug test-first: writes a focused regression test that fails before the fix and passes after it, or the closest practical check when a test isn't worth it. Runs only when invoked explicitly. | None. |
 
+## Mods
+
+| Mod | What it does |
+| --- | --- |
+| `cruscotto` | Side pane in Claude Code with usage limits, context use, git branch, session activity and running subagents. Open it with `/cruscotto`. |
+
 ## Install
 
 ### skills.sh
@@ -33,9 +39,23 @@ npx skills add mikeleg/skills --skill shape-it
 /plugin install mikeleg-skills@mikeleg
 ```
 
+### Mods
+
+At the prompt of a Claude Code terminal session:
+
+```
+/plugin install cruscotto --marketplace mikeleg/skills
+```
+
+From a shell:
+
+```bash
+claude plugin install cruscotto --marketplace mikeleg/skills
+```
+
 ## Repository layout
 
-Each skill lives in `skills/<name>/SKILL.md`. Skills can be grouped in categories, for example `skills/development/<name>/`.
+Each skill lives in `skills/<name>/SKILL.md`. Skills can be grouped in categories, for example `skills/development/<name>/`. Each mod lives in `mods/<name>/` as its own plugin, listed in `.claude-plugin/marketplace.json`.
 
 ## License
 
