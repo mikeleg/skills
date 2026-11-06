@@ -11,6 +11,7 @@ Agent skills by mikeleg, installable with [skills.sh](https://skills.sh) or as a
 | `reply-draft` | Drafts a reply to a customer email as an Outlook draft (never sent), using the thread, your past replies and the current work as context. | Microsoft 365 connector (Outlook). Optional: Azure CLI to read work items. |
 | `implement` | Implements a spec or set of tickets, using `tdd` where it fits, then simplifies the code, reviews it with `/code-review` and commits. | Claude Code (uses the `/simplify` and `/code-review` skills when available). |
 | `tdd` | Fixes a bug test-first: writes a focused regression test that fails before the fix and passes after it, or the closest practical check when a test isn't worth it. Runs only when invoked explicitly. | None. |
+| `video-prodotto` | Rules and recipes for building or revising a product promo video in Remotion: voice-over (Gemini TTS), music, highlights on app screenshots, CTA, sync and delivery checks. Written in Italian. | Node.js with Remotion, ffmpeg, Python. Optional: Gemini API key (`GEMINI_API_KEY`) for the voice, Claude in Chrome for screenshots. |
 
 ## Mods
 
