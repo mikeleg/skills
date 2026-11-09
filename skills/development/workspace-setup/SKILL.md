@@ -5,7 +5,7 @@ description: Set up a development workspace for working with a coding agent - co
 
 # Workspace setup
 
-Take an empty folder (or an existing project) to a workspace an agent can work in from the first session: code and docs in separate repos, real build/test/run commands written down, a branch + PR flow, and a wiki the agent reads as its documentation. The skill assumes no language or framework.
+Take an empty folder (or an existing project) to a workspace an agent can work in from the first session: code and docs in separate repos, real build/test/run commands written down, a branch + PR flow, and a wiki that works as the agent's second brain. The skill assumes no language or framework.
 
 Speak the user's language in conversation. Write files in English unless the user asks otherwise.
 
@@ -55,7 +55,7 @@ Then show the **3-line preamble** and wait for confirmation:
 ```
 <workspace-root>/      ← opened in the IDE, NOT a git repo
 ├── app/               ← code repo
-├── wiki/              ← docs repo the agent reads (separate git)
+├── wiki/              ← the agent's second brain (separate git)
 ├── reference/         ← UI mocks, external docs, exports
 │   └── mock/current/  ← current version; older ones in mock/<YYYY-MM-DD>/
 ├── .vscode/           ← tasks.json + launch.json with ${workspaceFolder}/app/... paths
@@ -93,22 +93,70 @@ Then show the **3-line preamble** and wait for confirmation:
 
 In every case: a `.gitignore` for build output, dependencies, local device/IDE files and local-only documents.
 
-## 4. Docs repo (`wiki/`) by provider
+## 4. The wiki: the agent's second brain
 
-The wiki is written for the agent: it is the documentation it reads before working on a feature (domain language, business rules, decisions, integrations), and every agent working on `app/` is pointed at it. Write it so an agent reading a page cold can act on it: one concept per page, explicit rules over narrative, undecided points marked as such. Changes to agreed content go through branch + PR and follow the **Proposed change** convention: an agreed section is never rewritten in place; the change is added below it as a block
+The wiki is the agent's long-term memory for this project. Its job is to save tokens and give context: an agent that reads a 40-line index and two short pages knows where things are and why, instead of grepping the codebase or re-deriving decisions every session. It holds what the code can't say (domain language, business rules, decisions and their reasons, integrations) and *where* things live in the code. It is not a copy of the code.
+
+Two consequences shape everything below: it must be **cheap to read selectively** (an index first, small pages, pointers instead of copies), and it must **stay true** (a stale pointer costs more tokens than no wiki, because the agent trusts it and then has to search anyway).
+
+### Skeleton
 
 ```
-> **Proposed change** (<author>, <date>)
-> What: … · Why: … · Impact: …
+wiki/
+├── index.md         ← the only page an agent always reads: one line per page
+├── conventions.md   ← how to read and write this wiki (read only when writing)
+├── glossary.md      ← domain terms: term · meaning · name in code
+├── decisions/       ← one short page per decision: context · decision · why · consequences
+├── integrations/    ← one page per external system (step 6)
+└── domain/          ← one page per concept or flow (filled later, by shape-it or by hand)
 ```
 
-and merged into the text only once approved. So the wiki needs a repo with branches and PRs:
+`index.md` lists every page as `- [Title](path) – one-line summary`, grouped by folder, and nothing else. Keep it under ~150 lines; past that, give each folder its own index and link those. On Azure DevOps put `index` first in the root `.order`; on GitHub add a one-line `README.md` pointing to it.
+
+### Page format
+
+```
+---
+summary: one line, the same as in index.md
+code: [src/billing/invoice.ts, InvoiceService.issue]   # where this lives; paths or symbols
+updated: <date>
+---
+# <Concept>
+Rules as short, explicit statements. Examples only when a rule is ambiguous without one.
+Links to related pages instead of repeating them.
+```
+
+- One concept per page, under ~120 lines. Longer means two concepts: split.
+- Point to code, never paste it. The code is the truth for *how*; the page says *what*, *why* and *where*.
+- Each fact lives in one page. Everywhere else links to it.
+- Undecided points are **Open** blocks (step 6), never guesses.
+
+### Read and write protocol (written into `conventions.md` and `app/CLAUDE.md`)
+
+- **Read before searching.** Start every task from `index.md`, open only the pages the task touches, follow their `code:` pointers. Search the codebase only for what the wiki doesn't answer.
+- **Stop at Open blocks.** Ask instead of assuming.
+- **Write back at the end of a task.** If the task taught something durable that the wiki lacked or had wrong (where a flow lives, a rule, a term, a decision taken), update the page, its `updated:` date and `index.md` in the same session, and list the wiki changes in the task report. If a `code:` pointer turned out wrong, fix it on the spot.
+- **What changes directly, what is proposed.** Navigation facts (code pointers, how a flow is wired, new glossary entries, new pages) are updated directly. A change to an agreed business rule or decision is added as a **Proposed change** block below the agreed text instead of rewriting it:
+
+  ```
+  > **Proposed change** (<author>, <date>)
+  > What: … · Why: … · Impact: …
+  ```
+
+  and merged into the text only once approved.
+- Wiki changes go through a branch + PR like code; commit and push follow the same rules as the code.
+
+### Hosting by provider
+
+The wiki needs a repo with branches and PRs:
 
 - **Azure DevOps:** a dedicated `<app>-wiki` repo published as a **code wiki** (`az devops wiki create --type codewiki --name <app>-wiki --repository <app>-wiki --mapped-path / --version main`, confirm first). Advise against the *project wiki* (`<Project>.wiki`): edits go straight to the branch, no PRs or policies. Remember: page order is set by a `.order` file per folder; dashes in file names become spaces in titles; diagrams use `::: mermaid`.
 - **GitHub:** a dedicated `<owner>/<app>-wiki` repo (markdown rendered by GitHub, PRs and reviews). Advise against GitHub's built-in wiki (`<repo>.wiki.git`): no PRs or reviews, flat structure. Diagrams in ```` ```mermaid ```` blocks.
 - **Local only:** `git init -b main` in `wiki/`.
 
-Create only a minimal skeleton: a Home page that says the wiki is the agent's documentation and how to read it, the Proposed change convention above, the open-point convention (step 6), and an empty index. Writing the spec itself is not this skill's job.
+Agents started inside `app/` must be able to read the wiki: add `"additionalDirectories": ["../wiki"]` under `permissions` in `app/.claude/settings.json` (versioned, so every clone with the same layout gets it). If reads outside `app/` still get blocked, start sessions from the workspace root instead, where both `app/` and `wiki/` are in scope.
+
+Create the skeleton only: `index.md`, `conventions.md` (page format + protocol above), an empty `glossary.md` with its header row, the empty folders, and one page per integration from step 6. Writing the domain pages is not this skill's job.
 
 ## 5. Run & debug
 
@@ -137,7 +185,7 @@ There is no separate questions file. An open point lives where the agent will re
   When the answer is agreed, replace the block with the rule itself (through the Proposed change flow if the page is already agreed).
 - **Development environment** (internal feed, network IPs, a branch policy that couldn't be applied) → in `app/CLAUDE.md`, in a short "To verify" list.
 
-The wiki Home explains the convention, so an agent that meets an **Open** block stops and asks instead of assuming.
+`conventions.md` explains the convention, so an agent that meets an **Open** block stops and asks instead of assuming.
 
 ## 7. Instructions for the agent
 
@@ -149,8 +197,7 @@ The wiki Home explains the convention, so an agent that meets an **Open** block 
 - Backlog: `docs/backlog/<feature>/` (scope.md + backlog.md, written by `shape-it`).
 - Security: never print tokens or put them in files; confirm before push, merge, sending, deleting.
 - The 3-line preamble ritual (goal, source of truth, definition of done) before non-trivial work, and the rule "if sources disagree, surface it and ask".
-- Wiki: the Proposed change convention; wiki commits only on request.
-- Domain docs: `../wiki/` (or its URL) is the agent's documentation; read the relevant pages before working on a feature, and stop at **Open** blocks.
+- Wiki (`../wiki/`): the read and write protocol from step 4, in four lines: start from `index.md`, open only the pages the task touches and follow their `code:` pointers; search the code only for what the wiki doesn't answer; stop at **Open** blocks; at the end of the task, write back what you learned (agreed rules only as Proposed change).
 - To verify: the environment's open points from step 6, if any.
 
 **`<workspace-root>/CLAUDE.md` (local-only)** – short, read in every session opened on the root:
@@ -162,11 +209,11 @@ The wiki Home explains the convention, so an agent that meets an **Open** block 
 - app/  → <remote url or "local">
 - wiki/ → <remote url or "local">  · type: <code wiki | markdown repo | local>
 - reference/ → current mocks in reference/mock/current/
-- wiki/ is the agent's documentation; open points are **Open** blocks in its pages
+- wiki/ is the agent's second brain: start from wiki/index.md before searching the code
 - Project instructions: app/CLAUDE.md
 ```
 
-How to build, test and work on the code goes in `app/CLAUDE.md`; domain language, business rules and product decisions go in the wiki. Each fact lives in one place: don't duplicate.
+`CLAUDE.md` files are loaded into every session, so keep them short: commands, flow, rules for working, and the pointer to the wiki. Everything else (domain language, business rules, decisions, where things live) goes in the wiki, which is read on demand. Each fact lives in one place: don't duplicate.
 
 ## 8. Close
 
@@ -174,7 +221,8 @@ How to build, test and work on the code goes in `app/CLAUDE.md`; domain language
    - Workspace root is not a git repo; `app/`, `wiki/`, `reference/` exist
    - `app/` repo with remote (or local), `.gitignore`
    - `main` protected (policy, ruleset, hook, or written convention)
-   - `wiki/` repo with branches + PRs, Home page saying it's the agent's documentation, with the Proposed change and Open conventions
+   - `wiki/` repo with branches + PRs; `index.md`, `conventions.md` (format, protocol, Proposed change, Open), `glossary.md`, `decisions/`, `integrations/`, `domain/`
+   - `app/.claude/settings.json` lets agents in `app/` read `../wiki`
    - `.vscode/` at the root with real tasks and launch configs
    - Internal packages configured, or recorded as open points
    - Integrations behind a port + mock, one wiki page each
