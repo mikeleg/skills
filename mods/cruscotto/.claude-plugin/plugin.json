@@ -1,9 +1,41 @@
 {
   "name": "cruscotto",
-  "version": "0.1.0",
-  "description": "Pannello laterale con limiti d'uso, contesto e subagent (/cruscotto).",
+  "version": "0.4.0",
+  "description": "Pannello laterale con limiti d'uso, contesto, cache, dove vanno i token e subagent (/cruscotto).",
   "license": "MIT",
-  "author": { "name": "mikeleg" },
+  "author": {
+    "name": "mikeleg"
+  },
   "repository": "https://github.com/mikeleg/skills",
-  "types": "./types/index.d.ts"
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "cacheTtl": {
+      "type": "string",
+      "title": "Durata della cache",
+      "description": "Quanto resta calda la prompt cache dopo un turno: 5m (default API) o 1h.",
+      "options": [
+        "5m",
+        "1h"
+      ],
+      "default": "5m"
+    },
+    "notifyAfter": {
+      "type": "string",
+      "title": "Avviso di fine lavoro",
+      "description": "Da quale durata del turno avvisare con toast, notifica di sistema e suono: sempre, 30s, 2m o mai. La fascia nel pannello c'è sempre.",
+      "options": [
+        "sempre",
+        "30s",
+        "2m",
+        "mai"
+      ],
+      "default": "30s"
+    },
+    "sound": {
+      "type": "boolean",
+      "title": "Suono di fine lavoro",
+      "description": "Un breve suono quando il lavoro finisce (dove il sistema lo riproduce).",
+      "default": true
+    }
+  }
 }
