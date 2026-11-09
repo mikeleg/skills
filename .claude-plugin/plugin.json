@@ -1,7 +1,7 @@
 {
   "name": "mikeleg-skills",
   "description": "Agent skills by mikeleg: shape-it, implement, tdd, log-task-hours, reply-draft, video-prodotto",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "license": "MIT",
   "author": { "name": "mikeleg" },
   "repository": "https://github.com/mikeleg/skills",
