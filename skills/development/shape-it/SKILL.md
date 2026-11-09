@@ -17,11 +17,12 @@ Speak the user's language in conversation. Write the artifacts (scope.md, backlo
 3. **Scope** – walking skeleton + riskiest assumption → in / out / non-goals.
 4. **Prototype gate** – decide whether one throwaway prototype should answer a question before slicing.
 5. **Slice** – vertical tracer-bullet slices with acceptance criteria and blocking edges.
-6. **Write** – `scope.md` + `backlog.md` in the repo (or workspace).
-7. **Publish (optional)** – GitHub Issues or Azure DevOps work items, only after confirmation.
-8. **Hand off** – say which slice goes first and that implementation is a separate skill.
+6. **Challenge** – subagents look for better routes and play devil's advocate on the decisions; the user confirms what changes.
+7. **Write** – `scope.md` + `backlog.md` in the repo (or workspace).
+8. **Publish (optional)** – GitHub Issues or Azure DevOps work items, only after confirmation.
+9. **Hand off** – say which slice goes first and that implementation is a separate skill.
 
-Steps 2 and 4 are the only places you stop and wait for the user. Everything else, do.
+Steps 2, 4 and 6 are the only places you stop and wait for the user. Everything else, do.
 
 ---
 
@@ -113,7 +114,34 @@ Each slice also gets a one-line **Why** (what it proves or what value it unlocks
 
 Full slice template and a worked example are in `references/templates.md`.
 
-## 6. Write the artifacts
+## 6. Challenge before writing
+
+The scope and the slices so far are one line of reasoning: yours. Before anything is written, get two independent reads that are not anchored on it.
+
+Spawn **two subagents in parallel** (one message, two Agent calls). No more.
+
+- **Alternatives explorer** – proposes 2–3 genuinely different ways to build the walking skeleton and prove the riskiest assumption (different route, different integration, different cut of the slices), each with its trade-off. In codebase mode it may read the repo.
+- **Devil's advocate** – attacks each decision: the interview defaults the user accepted, in / out / non-goals, the riskiest-assumption pick, the skeleton route, slice order and blocking edges. For each decision: the strongest objection, or "holds".
+
+What goes in each brief (this is what makes the challenge worth anything):
+- The raw material: user brief, Orient summary, interview questions with the answers (marking which were accepted defaults), draft scope, draft slices (titles, Why, AC, blocking edges).
+- The **numbered list of decisions** to examine, as targets.
+- **Not** your rationale presented as a conclusion to confirm. An agent handed your hypothesis returns it confirmed.
+- Return format: a short list, one item per point: decision · objection or alternative · what it would change in the slices (added / removed / reordered / none).
+
+Synthesis:
+- Keep only items that would **change which slices exist or their order** – the same stop criterion as the interview. Wording-level remarks go into the slice bodies silently; nice-to-haves go to `## Later`.
+- Cap at **5** items, ranked by impact.
+- Present them to the user in one message, each as **keep / change** with your proposed default ("If you don't say otherwise I'll …"). A subagent never overturns a user's answer on its own; the user decides.
+- If nothing survives the filter, say so in one line and go straight to Write without waiting.
+
+Record the outcome in `scope.md` under "Decisions taken during scoping": one line per challenged decision, kept or changed and why, so it is not re-argued later. Apply the changes to the slices, then write.
+
+Subagents read and reason; they do not write files or code.
+
+**No Agent tool** (Cowork / chat): do both roles yourself in one deliberate pass, explicitly arguing against your own draft, same output format, and say in one line that the challenge ran inline.
+
+## 7. Write the artifacts
 
 Markdown first; it is the source of truth even when you also publish to a tracker.
 
@@ -125,7 +153,7 @@ Location:
 
 Show the user the backlog in chat as well: slice titles, sizes, blocking edges. Not the full bodies; they can open the file.
 
-## 7. Publish (ask first)
+## 8. Publish (ask first)
 
 Publishing creates things other people see. Always confirm: "I can create N issues on GitHub (repo X) / N work items in Azure DevOps (project Y) from this backlog. Go ahead?" Then:
 
@@ -136,7 +164,7 @@ After publishing, write the ticket URLs back into `backlog.md` next to each slic
 
 If neither tracker is reachable, say so in one line and stop at markdown. Do not simulate publishing.
 
-## 8. Hand off
+## 9. Hand off
 
 Final message, short:
 - Where the files are.
@@ -158,3 +186,5 @@ Final message, short:
 - `scope.md` has no non-goals.
 - You published to a tracker without being told to.
 - You started writing code that is not a prototype.
+- A challenge changed a user decision without the user seeing it.
+- You briefed the challenge subagents with your conclusion and asked them to confirm it.
