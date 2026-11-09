@@ -13,6 +13,10 @@ const SECONDARY = '#90A4AE'
 const BAR_EMPTY = '#455A64'
 const AMBER = '#FFCC80'
 const RED = '#EF9A9A'
+const GREEN = '#81C784'
+/** The running light, and the dark it fades into. */
+const SCAN = '#FF5252'
+const SCAN_DARK = '#3A2A2E'
 /** The context bar's segments, largest category first. */
 const SEGMENTS = [HEADER, '#B39DDB', AMBER, '#90CAF9', '#A5D6A7', SECONDARY]
 
@@ -41,20 +45,28 @@ const TOP_TOOLS = 3
 const TOP_REREADS = 2
 const TOP_SEGMENTS = 5
 
-/** How long the end-of-work band sweeps and stays lit in the pane. */
+/** How long the end-of-work line stays lit in the pane. */
 const BANNER_MS = 6_000
-const SWEEP_MS = 700
 const DONE_SOUND = 'sounds/done.wav'
 /** The notify option: from which turn length the end is announced outside the pane. */
 const NOTIFY_AFTER: Record<string, number> = { sempre: 0, '30s': 30_000, '2m': 120_000, mai: Infinity }
 const DONE_LOOK: Record<DoneInfo['reason'], { icon: string; label: string; color: string }> = {
-  answer: { icon: '✓', label: 'Lavoro finito', color: HEADER },
-  refusal: { icon: '✓', label: 'Risposta data', color: HEADER },
+  answer: { icon: '✓', label: 'Lavoro finito', color: GREEN },
+  refusal: { icon: '✓', label: 'Risposta data', color: GREEN },
   aborted: { icon: '■', label: 'Interrotto', color: RED },
   error: { icon: '✗', label: 'Fermato da un errore', color: RED },
 }
-/** The dark ink on a lit band. */
-const INK = '#102A27'
+
+// The strip: a light that runs back and forth while the work goes on, solid when it ends.
+const STRIP_KEY = 'strip'
+/** A frame of the strip on the terminal, repainted in place (about 30 a second). */
+const STRIP_FRAME_MS = 33
+/** One pass there and back. */
+const SCAN_PERIOD_MS = 1_600
+/** Lit cells behind the light, fading. */
+const TRAIL = 7
+/** Refused repaints in a row (the pane is not on screen): stop until the next draw. */
+const BLIT_GIVE_UP = 30
 
 const ZERO: TokenCounts = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }
 
@@ -132,6 +144,10 @@ let bannerUntil = 0
 let filesBefore = 0
 let notifyAfterMs = NOTIFY_AFTER['30s'] as number
 let isSoundOn = true
+let blitTimer: Timer | undefined
+let blitRefused = 0
+let scanFrame = 0
+let stripWidth = 0
 
 function clockTime(iso: string): string {
   const d = new Date(iso)
@@ -259,8 +275,8 @@ function clip(text: string, width: number): string {
 /** How fast the pane must redraw now. */
 function wantedTick(now: number): number {
   if (unseenTicks >= UNSEEN_TICKS) return TICK_IDLE
-  if (mainRunning || activeAgents > 0 || tweening || now < flashUntil || now < bannerUntil) return TICK_FAST
-  if (cacheWarmUntil > 0 && now < cacheWarmUntil + 60_000) return TICK_SECOND
+  if (mainRunning || activeAgents > 0 || tweening || now < flashUntil) return TICK_FAST
+  if (now < bannerUntil || (cacheWarmUntil > 0 && now < cacheWarmUntil + 60_000)) return TICK_SECOND
   return TICK_IDLE
 }
 
@@ -357,6 +373,94 @@ function toolLabel(e: { tool: string } & Record<string, unknown>): string {
     .find((v): v is string => typeof v === 'string' && v !== '')
   if (field === undefined) return ''
   return /[\\/]/.test(field) && !/\s/.test(field) ? baseName(field) : field
+}
+
+type StripCell = { char: string; color: string }
+type StripState = 'idle' | 'scan' | 'done' | 'stopped'
+
+const isScanning = () => mainRunning || activeAgents > 0
+
+function hex(color: string): [number, number, number] {
+  const n = Number.parseInt(color.slice(1), 16)
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+}
+
+/** `a` to `b` by `t`, 0 to 1. */
+function mix(a: string, b: string, t: number): string {
+  const [x, y] = [hex(a), hex(b)]
+  return `#${x.map((v, i) => Math.round(v + ((y[i] as number) - v) * t).toString(16).padStart(2, '0')).join('')}`
+}
+
+/**
+ * The strip at time `t`: while scanning, a light that runs to one end and
+ * back with a fading trail behind it; else solid green (done), solid red
+ * (stopped) or a dim line (nothing yet).
+ */
+function stripCells(state: StripState, width: number, t: number): StripCell[] {
+  if (state === 'done') return Array.from({ length: width }, () => ({ char: '━', color: GREEN }))
+  if (state === 'stopped') return Array.from({ length: width }, () => ({ char: '━', color: RED }))
+  const cells = Array.from({ length: width }, () => ({ char: '─', color: state === 'idle' ? BAR_EMPTY : SCAN_DARK }))
+  if (state === 'idle' || width < 2) return cells
+  const phase = (t % SCAN_PERIOD_MS) / SCAN_PERIOD_MS
+  const isForward = phase < 0.5
+  const head = Math.round((isForward ? phase * 2 : (1 - phase) * 2) * (width - 1))
+  const behind = isForward ? -1 : 1
+  for (let i = TRAIL; i >= -1; i--) {
+    const at = head + behind * i
+    if (at < 0 || at >= width) continue
+    const glow = i === -1 ? 0.35 : i === 0 ? 1 : 0.85 * 0.68 ** (i - 1)
+    cells[at] = { char: '━', color: mix(SCAN_DARK, SCAN, glow) }
+  }
+  return cells
+}
+
+const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+
+function base64(bytes: Uint8Array): string {
+  let out = ''
+  for (let i = 0; i < bytes.length; i += 3) {
+    const [a, b, c] = [bytes[i] as number, bytes[i + 1], bytes[i + 2]]
+    const n = (a << 16) | ((b ?? 0) << 8) | (c ?? 0)
+    out += B64[(n >> 18) & 63]! + B64[(n >> 12) & 63]!
+    out += b === undefined ? '=' : B64[(n >> 6) & 63]!
+    out += c === undefined ? '=' : B64[n & 63]!
+  }
+  return out
+}
+
+/** The strip as a Raster's cells: little-endian [codePoint, foreground, background] per cell. */
+function rasterCells(cells: StripCell[]): string {
+  const bytes = new Uint8Array(cells.length * 12)
+  const view = new DataView(bytes.buffer)
+  cells.forEach((cell, i) => {
+    view.setUint32(i * 12, cell.char.codePointAt(0) ?? 0x2500, true)
+    view.setUint32(i * 12 + 4, Number.parseInt(cell.color.slice(1), 16), true)
+    view.setUint32(i * 12 + 8, 0x01000000, true)
+  })
+  return base64(bytes)
+}
+
+/**
+ * On the terminal the light runs at the frame rate: the mounted Raster is
+ * repainted in place, no redraw of the pane. It stops itself once the work
+ * ends (and redraws the pane solid) or while the pane is not on screen.
+ */
+function runStrip($: EngineInterface): void {
+  if (blitTimer !== undefined) return
+  blitRefused = 0
+  blitTimer = $.clock.every(STRIP_FRAME_MS, () => {
+    if (!isScanning() || blitRefused >= BLIT_GIVE_UP) {
+      blitTimer?.cancel()
+      blitTimer = undefined
+      $.ui.invalidate('ui.render')
+      return
+    }
+    scanFrame++
+    void $.ui
+      .blit({ requestId: PANE, key: STRIP_KEY, columns: stripWidth, rows: 1, cells: rasterCells(stripCells('scan', stripWidth, scanFrame * STRIP_FRAME_MS)) })
+      .then(r => { blitRefused = r.deny === undefined ? 0 : blitRefused + 1 })
+      .catch(() => { blitRefused++ })
+  })
 }
 
 /** A turn's length to the second while short: '42s', '1m35', then as `duration` has it. */
@@ -630,29 +734,42 @@ export const register: Register = (on, options) => {
       </Box>
     )
 
-    // The end of the work: a band that wipes across and stays lit, then a quiet line until the next turn.
+    // The strip: the running light while the work goes on, solid green once it is done.
+    const stripState: StripState = isScanning()
+      ? 'scan'
+      : ended === null ? 'idle' : ended.reason === 'aborted' || ended.reason === 'error' ? 'stopped' : 'done'
+    let strip
+    if (e.surface === 'terminal') {
+      const { Raster } = $.ui.resolve(e)
+      stripWidth = width
+      strip = <Raster key={STRIP_KEY} columns={width} rows={1} cells={rasterCells(stripCells(stripState, width, scanFrame * STRIP_FRAME_MS))} />
+      if (stripState === 'scan') runStrip($)
+    } else {
+      // Elsewhere it moves with the pane's own redraws, colour runs as Text.
+      const runs: StripCell[] = []
+      for (const cell of stripCells(stripState, width, now)) {
+        const prev = runs[runs.length - 1]
+        if (prev !== undefined && prev.color === cell.color) prev.char += cell.char
+        else runs.push({ ...cell })
+      }
+      strip = (
+        <Box key={STRIP_KEY}>
+          <Text>{runs.map(r => <Text color={r.color}>{r.char}</Text>)}</Text>
+        </Box>
+      )
+    }
+
+    // The end of the work: lit for a few seconds, then quiet until the next turn.
     let doneRow = null
     if (ended !== null && !mainRunning) {
       const look = DONE_LOOK[ended.reason]
-      const summary = doneSummary(ended)
-      const since = now - ended.at
-      if (since >= 0 && since < BANNER_MS) {
-        const line = ` ${look.icon} ${look.label} · ${summary}`.padEnd(width).slice(0, width)
-        const wiped = clamp(Math.round((since / SWEEP_MS) * width), 1, width)
-        doneRow = (
-          <Text>
-            <Text bold color={INK} backgroundColor={look.color}>{line.slice(0, wiped)}</Text>
-            <Text bold color={look.color}>{line.slice(wiped)}</Text>
-          </Text>
-        )
-      } else {
-        doneRow = (
-          <Text color={SECONDARY} wrap="truncate-end">
-            <Text color={look.color}>{look.icon}</Text>
-            {` ${look.label.toLowerCase()} alle ${clockTime(new Date(ended.at).toISOString())} · ${summary}`}
-          </Text>
-        )
-      }
+      const isFresh = now - ended.at < BANNER_MS
+      doneRow = (
+        <Text wrap="truncate-end" bold={isFresh} color={isFresh ? look.color : SECONDARY}>
+          <Text color={look.color}>{look.icon}</Text>
+          {` ${look.label} alle ${clockTime(new Date(ended.at).toISOString())} · ${doneSummary(ended)}`}
+        </Text>
+      )
     }
 
     // Limits: 5 hours, then the week, then the rest, their resets in one column.
@@ -777,7 +894,7 @@ export const register: Register = (on, options) => {
     const spending = [toolRow, biggest, rereadRow, mcpRow].filter(r => r !== null)
 
     // Subagents: as many finished ones as the pane has rows left for.
-    const fixedRows = 1 + (doneRow ? 1 : 0) + 2 + limits.length + 2 + 2 + (legend ? 1 : 0) + (cacheBar ? 1 : 0) + (cacheClock ? 1 : 0)
+    const fixedRows = 2 + (doneRow ? 1 : 0) + 2 + limits.length + 2 + 2 + (legend ? 1 : 0) + (cacheBar ? 1 : 0) + (cacheClock ? 1 : 0)
       + (last ? 1 : 0) + (spending.length > 0 ? 2 + spending.length : 0) + 2 + active.length
     const finishedShown = clamp(room - fixedRows - 1, 0, FINISHED_MAX)
     const modelWidth = Math.min(
@@ -808,6 +925,7 @@ export const register: Register = (on, options) => {
     return (
       <Box flexDirection="column" width={width}>
         {header}
+        {strip}
         {doneRow}
 
         {heading('Limiti')}

@@ -22,6 +22,7 @@ const NOW = Date.UTC(2026, 0, 1, 12, 0)
 const CELLS = 30
 const LIMIT_CELLS = 16
 const ORBIT = '[◐◓◑◒]'
+const GREEN = '#81C784'
 
 function usage(partial: Partial<SessionUsage> = {}): SessionUsage {
   return {
@@ -490,7 +491,7 @@ test('subagent: attivi prima, terminati quanti ne entrano', async ($, on) => {
   await ui.unmount()
 
   // A short pane keeps everything in view: fewer finished ones.
-  ui = await $.ui.mount({ ...PANE, surface: 'terminal', props: { ...PANE.props, scroll: { offset: 0, bodyRows: 13 } } })
+  ui = await $.ui.mount({ ...PANE, surface: 'terminal', props: { ...PANE.props, scroll: { offset: 0, bodyRows: 14 } } })
   expect(await ui.find({ type: 'Text', text: /task w$/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /task d7$/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /task d6$/ })).toBeUndefined()
@@ -635,7 +636,7 @@ async function work($: Engine, on: On, seconds: number, files = 0, reason: 'answ
   await $.turn.complete({ ...closed('ok', undefined, spent(10, 10, 100, 0)), durationMs: seconds * 1000, reason, isAborted: reason === 'aborted' })
 }
 
-test('fine lavoro: la fascia attraversa il pannello, poi resta una riga', async ($, on) => {
+test('fine lavoro: una riga accesa in verde, poi quieta fino al turno dopo', async ($, on) => {
   const clock = mock.clock(on, { now: NOW })
   host(on)
   on('agent.list', () => ({ value: [] }))
@@ -644,16 +645,18 @@ test('fine lavoro: la fascia attraversa il pannello, poi resta una riga', async 
 
   for (const surface of SURFACES) {
     const ui = await $.ui.mount({ ...PANE, surface })
-    const band = (await ui.find({ type: 'Text', text: /^ ✓ Lavoro finito/ }))?.text ?? ''
-    expect(band.trimEnd()).toBe(' ✓ Lavoro finito · 1m35 · 2 file · +0.12 $')
-    expect(band.length).toBe(60)
+    const line = await ui.find({ type: 'Text', text: /^✓ Lavoro finito/ })
+    expect(line?.text).toMatch(/^✓ Lavoro finito alle \d\d:\d\d · 1m35 · 2 file · \+0\.12 \$$/)
+    expect(line?.props.bold).toBe(true)
+    expect(line?.props.color).toBe(GREEN)
     await ui.unmount()
   }
 
   await clock.advance(7_000)
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect(await ui.find({ type: 'Text', text: /^ ✓ Lavoro finito/ })).toBeUndefined()
-  expect((await ui.find({ type: 'Text', text: /lavoro finito alle/ }))?.text).toMatch(/^✓ lavoro finito alle \d\d:\d\d · 1m35 · 2 file · \+0\.12 \$$/)
+  const line = await ui.find({ type: 'Text', text: /^✓ Lavoro finito/ })
+  expect(line?.props.bold).toBe(false)
+  expect(line?.props.color).toBe('#90A4AE')
   await ui.unmount()
 })
 
@@ -678,7 +681,7 @@ test('fine lavoro: un turno breve resta nel pannello, senza avvisi', async ($, o
 
   expect(said).toEqual({ toasts: [], notes: [], sounds: 0 })
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect((await ui.find({ type: 'Text', text: /^ ✓ Lavoro finito/ }))?.text.trimEnd()).toBe(' ✓ Lavoro finito · 12s · +0.12 $')
+  expect((await ui.find({ type: 'Text', text: /^✓ Lavoro finito/ }))?.text).toMatch(/^✓ Lavoro finito alle \d\d:\d\d · 12s · \+0\.12 \$$/)
   await ui.unmount()
 })
 
@@ -691,7 +694,7 @@ test('fine lavoro: interrotto, in rosso e senza avvisi', async ($, on) => {
 
   expect(said).toEqual({ toasts: [], notes: [], sounds: 0 })
   const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
-  expect((await ui.find({ type: 'Text', text: /^ ■ Interrotto/ }))?.text.trimEnd()).toBe(' ■ Interrotto · 5m00 · +0.12 $')
+  expect((await ui.find({ type: 'Text', text: /^■ Interrotto/ }))?.text).toMatch(/^■ Interrotto alle \d\d:\d\d · 5m00 · \+0\.12 \$$/)
   await ui.unmount()
 })
 
@@ -728,4 +731,128 @@ test('fine lavoro: sparisce quando parte il turno dopo', async ($, on) => {
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   expect(await ui.find({ type: 'Text', text: /Lavoro finito|lavoro finito/ })).toBeUndefined()
   await ui.unmount()
+})
+
+/** The strip's cells from a Raster's base64: each cell's character and foreground. */
+function decode(cells: string): { char: string; fg: number }[] {
+  const bytes = Uint8Array.from(atob(cells), c => c.charCodeAt(0))
+  const view = new DataView(bytes.buffer)
+  return Array.from({ length: bytes.length / 12 }, (_, i) => ({
+    char: String.fromCodePoint(view.getUint32(i * 12, true)),
+    fg: view.getUint32(i * 12 + 4, true),
+  }))
+}
+
+/** The strip's colour runs, where the surface draws it as Text. */
+async function runsOf(ui: { find: (query: { key: string }) => Promise<{ children: unknown[] } | undefined> }) {
+  const strip = await ui.find({ key: 'strip' })
+  const line = (strip?.children ?? [])[0] as { children?: unknown[] } | undefined
+  return (line?.children ?? []).map(c => c as { props: { color?: string } })
+}
+
+test('striscia: corre avanti e indietro mentre lavora, poi resta verde', async ($, on) => {
+  const clock = mock.clock(on, { now: NOW })
+  host(on)
+  on('agent.list', () => ({ value: [] }))
+  on('session.usage', () => ({ value: usage() }))
+  on('turn.start', (_, e) => ({ turnId: e.turnId }))
+  on('turn.complete', () => ({ text: '' }))
+
+  // Nothing yet: a dim line.
+  let ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  expect((await ui.find({ key: 'strip' }))?.text).toBe('─'.repeat(60))
+  await ui.unmount()
+
+  await $.turn.start({ text: 'vai', turnId: 't' })
+  const seen = new Set<string>()
+  for (let i = 0; i < 8; i++) {
+    ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+    const text = (await ui.find({ key: 'strip' }))?.text ?? ''
+    expect(text.length).toBe(60)
+    expect(text).toMatch(/^─*━+─*$/)
+    seen.add(text)
+    await ui.unmount()
+    await clock.advance(200)
+  }
+  // It moved: eight frames over 1.6 s, one pass there and back.
+  expect(seen.size).toBeGreaterThan(4)
+
+  await $.turn.complete(closed('ok'))
+  ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  expect((await ui.find({ key: 'strip' }))?.text).toBe('━'.repeat(60))
+  expect((await runsOf(ui)).map(r => r.props.color)).toEqual([GREEN])
+  await ui.unmount()
+})
+
+test('striscia: interrotto resta rossa', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  host(on)
+  on('agent.list', () => ({ value: [] }))
+  outside(on)
+  await work($, on, 20, 0, 'aborted')
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  expect((await runsOf(ui)).map(r => r.props.color)).toEqual(['#EF9A9A'])
+  await ui.unmount()
+})
+
+test('striscia: corre finché lavora un subagent, anche a turno finito', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  host(on)
+  let list: AgentInfo[] = [running('a1')]
+  on('agent.list', () => ({ value: list }))
+  outside(on)
+  await work($, on, 20)
+
+  let ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  expect((await ui.find({ key: 'strip' }))?.text).toMatch(/^─*━+─*$/)
+  await ui.unmount()
+
+  list = [{ ...running('a1'), status: 'completed' }]
+  ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  // The first draw sees the agent gone; the next one is solid.
+  await ui.unmount()
+  ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  expect((await ui.find({ key: 'strip' }))?.text).toBe('━'.repeat(60))
+  await ui.unmount()
+})
+
+test('striscia sul terminale: ridisegnata in posto a ~30 fotogrammi, poi verde', async ($, on) => {
+  const clock = mock.clock(on, { now: NOW })
+  host(on)
+  on('agent.list', () => ({ value: [] }))
+  on('session.usage', () => ({ value: usage() }))
+  on('turn.start', (_, e) => ({ turnId: e.turnId }))
+  on('turn.complete', () => ({ text: '' }))
+  const blits: string[] = []
+  on('ui.blit', (_, e) => {
+    if ('cells' in e) blits.push(e.cells)
+    return { value: {} }
+  })
+
+  await $.turn.start({ text: 'vai', turnId: 't' })
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  const raster = await ui.find({ key: 'strip' })
+  expect(raster?.type).toBe('Raster')
+  expect(raster?.props.columns).toBe(60)
+
+  await clock.advance(33 * 30)
+  expect(blits.length).toBeGreaterThanOrEqual(29)
+  const frames = blits.map(decode)
+  for (const f of frames) expect(f.length).toBe(60)
+  // The brightest cell is the light: it travels.
+  const heads = new Set(frames.map(f => f.findIndex(c => c.fg === 0xff5252)))
+  expect(heads.size).toBeGreaterThan(10)
+
+  await $.turn.complete(closed('ok'))
+  await clock.advance(33 * 3)
+  const after = blits.length
+  await clock.advance(33 * 10)
+  expect(blits.length).toBe(after)
+  await ui.unmount()
+
+  const done = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  const solid = decode(String((await done.find({ key: 'strip' }))?.props.cells))
+  expect(solid.every(c => c.char === '━' && c.fg === 0x81c784)).toBe(true)
+  await done.unmount()
 })
