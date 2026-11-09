@@ -45,6 +45,18 @@ export type ContextShape = {
   mcp: { server: string; tokens: number }[]
 }
 
+/** How the main loop's last turn ended. */
+export type DoneInfo = {
+  at: number
+  durationMs: number
+  reason: 'answer' | 'aborted' | 'refusal' | 'error'
+  /** Files edited during the turn. */
+  files: number
+  costUsd?: number
+  /** Subagents still running when it ended. */
+  agents: number
+}
+
 declare module 'claude-code' {
   interface PluginState {
     cruscotto: {
@@ -60,6 +72,7 @@ declare module 'claude-code' {
       ledger: Shaped<TokenLedger>
       tools: Shaped<ToolLedger>
       context: Shaped<ContextShape | null>
+      done: Shaped<DoneInfo | null>
     }
   }
 }

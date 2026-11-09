@@ -540,7 +540,7 @@ test('barra di stato: modello, contesto, cache, subagent, file e comandi', async
   await $.tool.call({ tool: 'Bash', command: 'pwd', agentId: 'a2' })
   await clock.advance(250)
 
-  expect(status.at(-1)).toBe('opus · ctx 41% · cache 90% · agenti 3 sonnet, haiku · ✎2 ⚡2')
+  expect(status.at(-1)).toMatch(/^✓ \d\d:\d\d · opus · ctx 41% · cache 90% · agenti 3 sonnet, haiku · ✎2 ⚡2$/)
 })
 
 test('barra di stato: una raffica di chiamate, un solo aggiornamento', async ($, on) => {
@@ -602,4 +602,130 @@ test('barra di stato: un errore non rompe la chiamata', async ($, on) => {
   const ran = await $.tool.call({ tool: 'Bash', command: 'ls' })
   await clock.advance(250)
   expect(ran.deny).toBeUndefined()
+})
+
+/** What leaves the pane when the work ends: toasts, notifications and chimes. */
+function outside(on: On) {
+  const said = { toasts: [] as string[], notes: [] as { text: string; title?: string }[], sounds: 0 }
+  on('ui.toast', (_, e) => {
+    said.toasts.push(e.text)
+    return { value: undefined }
+  })
+  on('ui.notify', (_, e) => {
+    said.notes.push({ text: e.text, title: e.title })
+    return { value: { isSent: true, channel: 'terminal_bell' } }
+  })
+  on('audio.play', () => {
+    said.sounds++
+    return { value: undefined }
+  })
+  return said
+}
+
+/** A main turn of `seconds` that edits `files` files and costs from 0.50 to `cost` dollars. */
+async function work($: Engine, on: On, seconds: number, files = 0, reason: 'answer' | 'aborted' | 'error' = 'answer') {
+  let cost = 0.5
+  on('session.usage', () => ({ value: usage({ cost: { usd: cost } }) }))
+  on('turn.start', (_, e) => ({ turnId: e.turnId }))
+  on('turn.complete', () => ({ text: '' }))
+  on('tool.call', () => ({ result: {}, text: '' }))
+  await $.turn.start({ text: 'vai', turnId: 't' })
+  for (let i = 0; i < files; i++) await $.tool.call({ tool: 'Write', file_path: `/r/f${i}.ts`, content: '' })
+  cost = 0.62
+  await $.turn.complete({ ...closed('ok', undefined, spent(10, 10, 100, 0)), durationMs: seconds * 1000, reason, isAborted: reason === 'aborted' })
+}
+
+test('fine lavoro: la fascia attraversa il pannello, poi resta una riga', async ($, on) => {
+  const clock = mock.clock(on, { now: NOW })
+  host(on)
+  on('agent.list', () => ({ value: [] }))
+  outside(on)
+  await work($, on, 95, 2)
+
+  for (const surface of SURFACES) {
+    const ui = await $.ui.mount({ ...PANE, surface })
+    const band = (await ui.find({ type: 'Text', text: /^ ✓ Lavoro finito/ }))?.text ?? ''
+    expect(band.trimEnd()).toBe(' ✓ Lavoro finito · 1m35 · 2 file · +0.12 $')
+    expect(band.length).toBe(60)
+    await ui.unmount()
+  }
+
+  await clock.advance(7_000)
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: /^ ✓ Lavoro finito/ })).toBeUndefined()
+  expect((await ui.find({ type: 'Text', text: /lavoro finito alle/ }))?.text).toMatch(/^✓ lavoro finito alle \d\d:\d\d · 1m35 · 2 file · \+0\.12 \$$/)
+  await ui.unmount()
+})
+
+test('fine lavoro: un turno lungo avvisa con toast, notifica e suono', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  host(on)
+  on('agent.list', () => ({ value: [running('a1')] }))
+  const said = outside(on)
+  await work($, on, 42, 1)
+
+  expect(said.toasts).toEqual(['✓ Lavoro finito · 42s · 1 file · +0.12 $ · 1 subagent ancora attivi'])
+  expect(said.notes).toEqual([{ text: '42s · 1 file · +0.12 $ · 1 subagent ancora attivi', title: 'Claude: lavoro finito' }])
+  expect(said.sounds).toBe(1)
+})
+
+test('fine lavoro: un turno breve resta nel pannello, senza avvisi', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  host(on)
+  on('agent.list', () => ({ value: [] }))
+  const said = outside(on)
+  await work($, on, 12)
+
+  expect(said).toEqual({ toasts: [], notes: [], sounds: 0 })
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^ ✓ Lavoro finito/ }))?.text.trimEnd()).toBe(' ✓ Lavoro finito · 12s · +0.12 $')
+  await ui.unmount()
+})
+
+test('fine lavoro: interrotto, in rosso e senza avvisi', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  host(on)
+  on('agent.list', () => ({ value: [] }))
+  const said = outside(on)
+  await work($, on, 300, 0, 'aborted')
+
+  expect(said).toEqual({ toasts: [], notes: [], sounds: 0 })
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  expect((await ui.find({ type: 'Text', text: /^ ■ Interrotto/ }))?.text.trimEnd()).toBe(' ■ Interrotto · 5m00 · +0.12 $')
+  await ui.unmount()
+})
+
+test('fine lavoro: sempre, senza suono', { options: { notifyAfter: 'sempre', sound: false } }, async ($, on) => {
+  mock.clock(on, { now: NOW })
+  host(on)
+  on('agent.list', () => ({ value: [] }))
+  const said = outside(on)
+  await work($, on, 3)
+
+  expect(said.toasts).toEqual(['✓ Lavoro finito · 3s · +0.12 $'])
+  expect(said.notes.length).toBe(1)
+  expect(said.sounds).toBe(0)
+})
+
+test('fine lavoro: mai fuori dal pannello', { options: { notifyAfter: 'mai' } }, async ($, on) => {
+  mock.clock(on, { now: NOW })
+  host(on)
+  on('agent.list', () => ({ value: [] }))
+  const said = outside(on)
+  await work($, on, 3_600)
+
+  expect(said).toEqual({ toasts: [], notes: [], sounds: 0 })
+})
+
+test('fine lavoro: sparisce quando parte il turno dopo', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  host(on)
+  on('agent.list', () => ({ value: [] }))
+  outside(on)
+  await work($, on, 40)
+  await $.turn.start({ text: 'ancora', turnId: 't2' })
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: /Lavoro finito|lavoro finito/ })).toBeUndefined()
+  await ui.unmount()
 })

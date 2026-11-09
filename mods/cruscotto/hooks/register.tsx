@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { AgentInfo, AgentStatus, EngineInterface, Register, SessionRateLimit, Timer, TurnUsage } from 'claude-code'
 
-import type { ContextShape, CruscottoAgent, TokenCounts, TokenLedger, ToolLedger } from '../types'
+import type { ContextShape, CruscottoAgent, DoneInfo, TokenCounts, TokenLedger, ToolLedger } from '../types'
 
 const PANE = 'cruscotto'
 const NON_DISPONIBILE = 'non disponibile'
@@ -41,6 +41,21 @@ const TOP_TOOLS = 3
 const TOP_REREADS = 2
 const TOP_SEGMENTS = 5
 
+/** How long the end-of-work band sweeps and stays lit in the pane. */
+const BANNER_MS = 6_000
+const SWEEP_MS = 700
+const DONE_SOUND = 'sounds/done.wav'
+/** The notify option: from which turn length the end is announced outside the pane. */
+const NOTIFY_AFTER: Record<string, number> = { sempre: 0, '30s': 30_000, '2m': 120_000, mai: Infinity }
+const DONE_LOOK: Record<DoneInfo['reason'], { icon: string; label: string; color: string }> = {
+  answer: { icon: '✓', label: 'Lavoro finito', color: HEADER },
+  refusal: { icon: '✓', label: 'Risposta data', color: HEADER },
+  aborted: { icon: '■', label: 'Interrotto', color: RED },
+  error: { icon: '✗', label: 'Fermato da un errore', color: RED },
+}
+/** The dark ink on a lit band. */
+const INK = '#102A27'
+
 const ZERO: TokenCounts = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }
 
 const model = atom({ plugin: 'cruscotto', key: 'model' } as const, null)
@@ -61,6 +76,7 @@ const tools = atom(
   { shape: 'tools-1' },
 )
 const context = atom({ plugin: 'cruscotto', key: 'context' } as const, null, { shape: 'context-1' })
+const done = atom({ plugin: 'cruscotto', key: 'done' } as const, null, { shape: 'done-1' })
 
 type AgentRow = AgentInfo & Partial<CruscottoAgent>
 
@@ -112,6 +128,10 @@ let costBefore: number | undefined
 let statusTimer: Timer | undefined
 const shown = new Map<string, number>()
 let knownResets: Record<string, string> = {}
+let bannerUntil = 0
+let filesBefore = 0
+let notifyAfterMs = NOTIFY_AFTER['30s'] as number
+let isSoundOn = true
 
 function clockTime(iso: string): string {
   const d = new Date(iso)
@@ -239,7 +259,7 @@ function clip(text: string, width: number): string {
 /** How fast the pane must redraw now. */
 function wantedTick(now: number): number {
   if (unseenTicks >= UNSEEN_TICKS) return TICK_IDLE
-  if (mainRunning || activeAgents > 0 || tweening || now < flashUntil) return TICK_FAST
+  if (mainRunning || activeAgents > 0 || tweening || now < flashUntil || now < bannerUntil) return TICK_FAST
   if (cacheWarmUntil > 0 && now < cacheWarmUntil + 60_000) return TICK_SECOND
   return TICK_IDLE
 }
@@ -293,13 +313,14 @@ async function refreshContext($: EngineInterface, force = false): Promise<void> 
 /** The always-visible line: model, context, cache, active subagents, files edited and commands run. */
 async function refreshStatus($: EngineInterface): Promise<void> {
   try {
-    const [mainModel, known, usage, list, { files, commands }, { total }] = await Promise.all([
+    const [mainModel, known, usage, list, { files, commands }, { total }, ended] = await Promise.all([
       read($, model),
       read($, agents),
       $.session.usage(),
       $.agent.list(),
       read($, activity),
       read($, ledger),
+      read($, done),
     ])
     const active = list.filter(a => ACTIVE.includes(a.status))
     activeAgents = active.length
@@ -307,6 +328,7 @@ async function refreshStatus($: EngineInterface): Promise<void> {
     const { percent } = usage.context
     const hit = hitRate(total)
     const segments = [
+      ended === null || mainRunning ? '' : `${DONE_LOOK[ended.reason].icon} ${clockTime(new Date(ended.at).toISOString())}`,
       mainModel === null ? '' : shortModel(mainModel),
       percent === undefined ? '' : `ctx ${percent}%`,
       hit === undefined ? '' : `cache ${hit}%`,
@@ -337,8 +359,40 @@ function toolLabel(e: { tool: string } & Record<string, unknown>): string {
   return /[\\/]/.test(field) && !/\s/.test(field) ? baseName(field) : field
 }
 
+/** A turn's length to the second while short: '42s', '1m35', then as `duration` has it. */
+function turnLength(ms: number): string {
+  const seconds = Math.max(1, Math.round(ms / 1000))
+  if (seconds < 60) return `${seconds}s`
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m${pad2(seconds % 60)}`
+  return duration(ms)
+}
+
+/** One line for the turn just ended: how long, what it touched, what it cost, who still works. */
+function doneSummary(d: DoneInfo): string {
+  return [
+    turnLength(d.durationMs),
+    d.files === 0 ? '' : `${d.files} file`,
+    d.costUsd === undefined ? '' : `+${d.costUsd.toFixed(2)} $`,
+    d.agents === 0 ? '' : `${d.agents} subagent ancora attivi`,
+  ].filter(Boolean).join(' · ')
+}
+
+/** Says the work is over outside the pane: a toast, a native notification and a chime, for turns long enough. */
+async function announce($: EngineInterface, d: DoneInfo): Promise<void> {
+  if (d.reason === 'aborted' || d.durationMs < notifyAfterMs) return
+  const { icon, label } = DONE_LOOK[d.reason]
+  const text = `${label} · ${doneSummary(d)}`
+  $.ui.toast(`${icon} ${text}`, { timeoutMs: 8_000 })
+  await Promise.all([
+    $.ui.notify(doneSummary(d), { title: `Claude: ${label.toLowerCase()}` }).catch(() => {}),
+    isSoundOn && d.reason !== 'error' ? $.audio.play({ asset: DONE_SOUND }).catch(() => {}) : undefined,
+  ])
+}
+
 export const register: Register = (on, options) => {
   cacheTtlMs = options.cacheTtl === '1h' ? 60 * 60_000 : 5 * 60_000
+  notifyAfterMs = NOTIFY_AFTER[String(options.notifyAfter ?? '30s')] ?? (NOTIFY_AFTER['30s'] as number)
+  isSoundOn = options.sound !== false
 
   on('session.start', async ($, e, next) => {
     await $.command.register({
@@ -380,10 +434,10 @@ export const register: Register = (on, options) => {
   })
 
   on('session.compact', async ($, e, next) => {
-    const done = await next(e)
+    const result = await next(e)
     await refreshContext($, true)
 
-    return done
+    return result
   })
 
   on('agent.spawn', async ($, e, next) => {
@@ -436,7 +490,10 @@ export const register: Register = (on, options) => {
   on('turn.start', async ($, e, next) => {
     if (e.agentId === undefined) {
       mainRunning = true
+      bannerUntil = 0
+      filesBefore = (await read($, activity)).files.length
       costBefore = (await $.session.usage().catch(() => undefined))?.cost?.usd
+      statusSoon($)
       schedule($, await $.clock.now())
     }
 
@@ -470,7 +527,7 @@ export const register: Register = (on, options) => {
         return known ? { ...all, [id]: { ...known, endedAt: now, tokens: (known.tokens ?? 0) + sum(used) } } : all
       })
     }
-    const done = await next(e)
+    const result = await next(e)
     if (id === undefined) {
       mainRunning = false
       const after = (await $.session.usage().catch(() => undefined))?.cost?.usd
@@ -484,18 +541,29 @@ export const register: Register = (on, options) => {
         cacheWarmUntil = now + cacheTtlMs
         flashUntil = now + FLASH_MS
       }
+      const ended: DoneInfo = {
+        at: now,
+        durationMs: e.durationMs,
+        reason: e.reason,
+        files: Math.max(0, (await read($, activity)).files.length - filesBefore),
+        costUsd,
+        agents: (await $.agent.list().catch(() => [])).filter(a => ACTIVE.includes(a.status)).length,
+      }
+      await update($, done, () => ended)
+      bannerUntil = now + BANNER_MS
+      void announce($, ended)
     } else {
       await update($, ledger, l => ({ ...l, total: add(l.total, used) }))
     }
     schedule($, now)
     statusSoon($)
 
-    return done
+    return result
   })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const { Box, Text } = $.ui.resolve(e)
-    const [usage, list, now, mainModel, known, cwd, mainEffort, cachedBranch, spent, out, shape] = await Promise.all([
+    const [usage, list, now, mainModel, known, cwd, mainEffort, cachedBranch, spent, out, shape, ended] = await Promise.all([
       $.session.usage(),
       $.agent.list(),
       $.clock.now(),
@@ -507,6 +575,7 @@ export const register: Register = (on, options) => {
       read($, ledger),
       read($, tools),
       read($, context),
+      read($, done),
     ])
     unseenTicks = 0
     tweening = false
@@ -560,6 +629,31 @@ export const register: Register = (on, options) => {
         <Text bold={lit} color={lit ? AMBER : SECONDARY}>{cost}</Text>
       </Box>
     )
+
+    // The end of the work: a band that wipes across and stays lit, then a quiet line until the next turn.
+    let doneRow = null
+    if (ended !== null && !mainRunning) {
+      const look = DONE_LOOK[ended.reason]
+      const summary = doneSummary(ended)
+      const since = now - ended.at
+      if (since >= 0 && since < BANNER_MS) {
+        const line = ` ${look.icon} ${look.label} · ${summary}`.padEnd(width).slice(0, width)
+        const wiped = clamp(Math.round((since / SWEEP_MS) * width), 1, width)
+        doneRow = (
+          <Text>
+            <Text bold color={INK} backgroundColor={look.color}>{line.slice(0, wiped)}</Text>
+            <Text bold color={look.color}>{line.slice(wiped)}</Text>
+          </Text>
+        )
+      } else {
+        doneRow = (
+          <Text color={SECONDARY} wrap="truncate-end">
+            <Text color={look.color}>{look.icon}</Text>
+            {` ${look.label.toLowerCase()} alle ${clockTime(new Date(ended.at).toISOString())} · ${summary}`}
+          </Text>
+        )
+      }
+    }
 
     // Limits: 5 hours, then the week, then the rest, their resets in one column.
     rememberResets($, usage.rateLimits)
@@ -683,7 +777,7 @@ export const register: Register = (on, options) => {
     const spending = [toolRow, biggest, rereadRow, mcpRow].filter(r => r !== null)
 
     // Subagents: as many finished ones as the pane has rows left for.
-    const fixedRows = 1 + 2 + limits.length + 2 + 2 + (legend ? 1 : 0) + (cacheBar ? 1 : 0) + (cacheClock ? 1 : 0)
+    const fixedRows = 1 + (doneRow ? 1 : 0) + 2 + limits.length + 2 + 2 + (legend ? 1 : 0) + (cacheBar ? 1 : 0) + (cacheClock ? 1 : 0)
       + (last ? 1 : 0) + (spending.length > 0 ? 2 + spending.length : 0) + 2 + active.length
     const finishedShown = clamp(room - fixedRows - 1, 0, FINISHED_MAX)
     const modelWidth = Math.min(
@@ -714,6 +808,7 @@ export const register: Register = (on, options) => {
     return (
       <Box flexDirection="column" width={width}>
         {header}
+        {doneRow}
 
         {heading('Limiti')}
         {limits}
