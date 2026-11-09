@@ -100,8 +100,8 @@ You learned this in the interview. Adapt the *body* of each slice, not its shape
 
 | Implementer | What the slice body must contain |
 |---|---|
-| **Agent alone** | Everything it would otherwise have to ask: files/modules to touch, interfaces to respect, test cases to add (named), what "done" means mechanically, what *not* to touch. Sized for one agent session. |
-| **User + agent in pair** | Outcome, acceptance criteria, pointers to the relevant code, open decisions flagged as "decide while implementing". |
+| **Agent alone** | Everything it would otherwise have to ask: files/modules to touch, interfaces to respect, the seams the tests go through, test cases to add (named), what "done" means mechanically, what *not* to touch. Sized for one agent session. |
+| **User + agent in pair** | Outcome, acceptance criteria, the seams the tests go through, pointers to the relevant code, open decisions flagged as "decide while implementing". |
 | **Human team** | Outcome, acceptance criteria, constraints. No implementation prescription; they know their codebase. |
 | **Mix / unknown** | Write for "agent alone" but put the prescriptive part under a `## Implementation notes` heading a human can skip. |
 
