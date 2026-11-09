@@ -13,7 +13,7 @@
     {
       "name": "cruscotto",
       "source": "./mods/cruscotto",
-      "description": "Side pane with usage limits, context and subagents (/cruscotto)."
+      "description": "Side pane with usage limits, context by category, prompt cache, where the tokens go and subagents (/cruscotto)."
     }
   ]
 }

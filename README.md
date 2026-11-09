@@ -30,7 +30,7 @@ Agent skills by mikeleg, installable with [skills.sh](https://skills.sh) or as a
 
 | Mod | What it does |
 | --- | --- |
-| `cruscotto` | Side pane in Claude Code with usage limits, context use, git branch, session activity and running subagents. Open it with `/cruscotto`. |
+| `cruscotto` | Side pane in Claude Code, kept to one tab: usage limits, context split by category, prompt-cache hit rate and countdown, where the tokens go (tool outputs, files read again, MCP schemas) and subagents with their tokens. Animated while work runs. Open it with `/cruscotto`. |
 
 ## Install
 
