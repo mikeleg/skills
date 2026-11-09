@@ -87,7 +87,7 @@ test('contesto: barra e token', async ($, on) => {
   for (const surface of SURFACES) {
     const ui = await $.ui.mount({ ...PANE, surface })
     expect((await ui.find({ type: 'Text', text: /^ctx/ }))?.text).toBe(`ctx   ${'━'.repeat(24)}${'─'.repeat(6)} 80% 160k/200k`)
-    expect((await ui.find({ type: 'Text', text: /\$$/ }))?.text).toBe('0.50 $')
+    expect((await ui.find({ type: 'Text', text: /\$$/ }))?.text).toBe('totale   0.50 $')
     await ui.unmount()
   }
 })
@@ -121,9 +121,10 @@ test('contesto: barra divisa per categoria con legenda e MCP', async ($, on) => 
   for (const surface of SURFACES) {
     const ui = await $.ui.mount({ ...PANE, surface })
     expect((await ui.find({ type: 'Text', text: /^ctx/ }))?.text).toBe(`ctx   ${'━'.repeat(15)}${'─'.repeat(15)} 50% 100k/200k`)
-    expect((await ui.find({ type: 'Text', text: /■/ }))?.text).toBe('      ■ messaggi 60k ■ tool 30k ■ MCP 10k ')
-    // Only schemas inside the window count.
-    expect((await ui.find({ type: 'Text', text: /^MCP/ }))?.text).toBe('MCP       Gmail 6k · Drive 4k')
+    expect((await ui.find({ type: 'Text', text: /■/ }))?.text).toBe('      ■ messaggi 60k   30%')
+    // Only schemas inside the window count; they sit in the token tab.
+    await ui.press({ key: 'tab-token' })
+    expect((await ui.find({ type: 'Text', text: /^MCP/ }))?.text).toBe('MCP      Gmail  6k')
     await ui.unmount()
   }
 })
@@ -241,20 +242,20 @@ test('cache: hit rate, ultimo turno e countdown fino alla scadenza', async ($, o
 
   for (const surface of SURFACES) {
     const ui = await $.ui.mount({ ...PANE, surface })
-    expect((await ui.find({ type: 'Text', text: /^cache/ }))?.text).toBe(`cache ${'━'.repeat(27)}${'─'.repeat(3)} 90% hit · 90k letti`)
-    expect((await ui.find({ type: 'Text', text: /^turno/ }))?.text).toBe('turno ↓100k ↑1k · cache 90% · +0.12 $')
-    expect((await ui.find({ type: 'Text', text: /cache calda/ }))?.text).toBe('      ◷ cache calda ancora 5:00')
+    expect((await ui.find({ type: 'Text', text: /^cache/ }))?.text).toBe(`cache    ${'━'.repeat(24)}${'─'.repeat(3)} 90% hit · 90k letti`)
+    expect((await ui.find({ type: 'Text', text: /^turno/ }))?.text).toBe('turno    +0.12 $  ↓100k ↑1k · cache 90%')
+    expect((await ui.find({ type: 'Text', text: /cache calda/ }))?.text).toBe('         ◷ cache calda ancora 5:00')
     await ui.unmount()
   }
 
   await clock.advance(4 * 60_000 + 30_000)
   let ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect((await ui.find({ type: 'Text', text: /cache calda/ }))?.text).toBe('      ◷ cache calda ancora 0:30')
+  expect((await ui.find({ type: 'Text', text: /cache calda/ }))?.text).toBe('         ◷ cache calda ancora 0:30')
   await ui.unmount()
 
   await clock.advance(60_000)
   ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect((await ui.find({ type: 'Text', text: /scaduta/ }))?.text).toBe('      ⚠ cache scaduta: il prossimo turno riscrive ~92k')
+  expect((await ui.find({ type: 'Text', text: /scaduta/ }))?.text).toBe('         ⚠ cache scaduta: il prossimo turno riscrive ~92k')
   await ui.unmount()
 })
 
@@ -268,7 +269,7 @@ test('cache: durata di un\'ora dalle opzioni', { options: { cacheTtl: '1h' } }, 
   await $.turn.complete(closed('ok', undefined, spent(10, 10, 1_000, 0)))
   await clock.advance(30 * 60_000)
   const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
-  expect((await ui.find({ type: 'Text', text: /cache calda/ }))?.text).toBe('      ◷ cache calda ancora 30:00')
+  expect((await ui.find({ type: 'Text', text: /cache calda/ }))?.text).toBe('         ◷ cache calda ancora 30:00')
   await ui.unmount()
 })
 
@@ -289,8 +290,31 @@ test('dove vanno i token: solo il thread principale', async ($, on) => {
   for (const surface of SURFACES) {
     const ui = await $.ui.mount({ ...PANE, surface })
     expect(await ui.find({ type: 'Text', text: /Dove vanno i token/ })).toBeDefined()
-    expect((await ui.find({ type: 'Text', text: /^output/ }))?.text).toBe('output    Bash 12k×1 · Read 4k×4')
-    expect((await ui.find({ type: 'Text', text: /^⟳/ }))?.text).toBe('⟳ riletti register.tsx ×4')
+    await ui.press({ key: 'tab-token' })
+    expect((await ui.find({ type: 'Text', text: /^output/ }))?.text).toBe('output   Bash  12k  ×1')
+    expect((await ui.find({ type: 'Text', text: /^ +Read/ }))?.text).toBe('         Read   4k  ×4')
+    expect((await ui.find({ type: 'Text', text: /^riletti/ }))?.text).toBe('riletti  register.tsx  ×4')
+    await ui.unmount()
+  }
+})
+
+test('sotto-schede: costo e cache di default, i token con la scheda 2', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  host(on)
+  on('session.usage', () => ({ value: usage() }))
+  on('agent.list', () => ({ value: [] }))
+  on('tool.call', () => ({ result: {}, text: 'x'.repeat(4_000) }))
+  await $.tool.call({ tool: 'Bash', command: 'ls' })
+
+  for (const surface of SURFACES) {
+    const ui = await $.ui.mount({ ...PANE, surface })
+    expect(await ui.find({ type: 'Text', text: /^totale/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^output/ })).toBeUndefined()
+    await ui.press({ key: 'tab-token' })
+    expect(await ui.find({ type: 'Text', text: /^output/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^totale/ })).toBeUndefined()
+    await ui.press({ key: 'tab-costo' })
+    expect(await ui.find({ type: 'Text', text: /^totale/ })).toBeDefined()
     await ui.unmount()
   }
 })
@@ -307,7 +331,9 @@ test('dove vanno i token: quello che il modello scrive', async ($, on) => {
   await $.tool.call({ tool: 'Write', file_path: '/r/b.ts', content: 'w'.repeat(80_000), agentId: 'a1' })
 
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect((await ui.find({ type: 'Text', text: /^scritto/ }))?.text).toBe('scritto   Write 9k×1 · Edit 3k×1')
+  await ui.press({ key: 'tab-token' })
+  expect((await ui.find({ type: 'Text', text: /^scritto/ }))?.text).toBe('scritto  Write  9k  ×1')
+  expect((await ui.find({ type: 'Text', text: /^ +Edit +3k/ }))?.text).toBe('         Edit   3k  ×1')
   await ui.unmount()
 })
 
@@ -330,20 +356,23 @@ test('dove vanno i token: il peso di un output rimandato a ogni richiesta, finch
   for (let i = 0; i < 10; i++) await step(undefined, 'high')
 
   let ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect((await ui.find({ type: 'Text', text: /^↯ peso/ }))?.text).toBe('↯ peso    Bash npm test -- --verbose 8k ×10 ≈80k · tutti ≈100k')
+  await ui.press({ key: 'tab-token' })
+  expect((await ui.find({ type: 'Text', text: /^peso/ }))?.text).toBe('peso     Bash npm test -- --verbose  8k ×10 ≈80k')
+  expect((await ui.find({ type: 'Text', text: /tutti/ }))?.text).toBe('         tutti ≈100k')
   await ui.unmount()
 
   // A subagent's compaction leaves the main context as it was.
   await $.session.compact({ trigger: 'auto', messages: SUMMARY, agentId: 'a1' })
   ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect(await ui.find({ type: 'Text', text: /^↯ peso/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^peso/ })).toBeDefined()
   await ui.unmount()
 
   await $.session.compact({ trigger: 'manual', messages: SUMMARY })
   ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect(await ui.find({ type: 'Text', text: /^↯ peso/ })).toBeUndefined()
+  expect(await ui.find({ type: 'Text', text: /^peso/ })).toBeUndefined()
   // What happened stays counted.
-  expect((await ui.find({ type: 'Text', text: /^output/ }))?.text).toBe('output    Bash 8k×1 · Read 2k×1 · Grep 25×1')
+  expect((await ui.find({ type: 'Text', text: /^output/ }))?.text).toBe('output   Bash  8k  ×1')
+  expect((await ui.find({ type: 'Text', text: /^ +Grep/ }))?.text).toBe('         Grep  25  ×1')
   await ui.unmount()
 })
 
@@ -358,6 +387,7 @@ test('dove vanno i token: la traccia del contesto turno per turno, la compattazi
 
   await $.turn.complete(closed('1'))
   let ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await ui.press({ key: 'tab-token' })
   // One turn is not a trace yet.
   expect(await ui.find({ type: 'Text', text: /^turni/ })).toBeUndefined()
   await ui.unmount()
@@ -373,7 +403,7 @@ test('dove vanno i token: la traccia del contesto turno per turno, la compattazi
   for (const surface of SURFACES) {
     const view = await $.ui.mount({ ...PANE, surface })
     const trace = await view.find({ type: 'Text', text: /^turni/ })
-    expect(trace?.text).toBe('turni     ▁▃▃▆█▂ −160k')
+    expect(trace?.text).toBe('turni    ▁▃▃▆█▂ −160k')
     const colors = (trace?.children ?? []).slice(1, -1).map(c => (c as { props: { color?: string } }).props.color)
     expect(colors).toEqual(['#80CBC4', '#FFCC80', '#EF9A9A', '#B39DDB'])
     await view.unmount()
@@ -483,7 +513,7 @@ test('intestazione: lo spinner gira mentre il turno principale lavora', async ($
     const text = (await ui.find({ type: 'Text', text: /⎇ main/ }))?.text ?? ''
     expect(text).toMatch(/^[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] ⎇ main$/)
     frames.add(text)
-    expect((await ui.find({ type: 'Text', text: /cache in uso/ }))?.text).toMatch(new RegExp(`^ {6}${ORBIT} cache in uso$`))
+    expect((await ui.find({ type: 'Text', text: /cache in uso/ }))?.text).toMatch(new RegExp(`^ {9}${ORBIT} cache in uso$`))
     await ui.unmount()
     await clock.advance(120)
   }
@@ -580,9 +610,8 @@ test('subagent: attivi prima, terminati quanti ne entrano', async ($, on) => {
   // A short pane keeps everything in view: fewer finished ones.
   ui = await $.ui.mount({ ...PANE, surface: 'terminal', props: { ...PANE.props, scroll: { offset: 0, bodyRows: 14 } } })
   expect(await ui.find({ type: 'Text', text: /task w$/ })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: /task d7$/ })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: /task d6$/ })).toBeUndefined()
-  expect((await ui.find({ type: 'Text', text: /terminati/ }))?.text).toBe('+6 terminati')
+  expect(await ui.find({ type: 'Text', text: /task d7$/ })).toBeUndefined()
+  expect((await ui.find({ type: 'Text', text: /terminati/ }))?.text).toBe('+7 terminati')
   await ui.unmount()
 })
 
@@ -992,12 +1021,14 @@ test('tooltip: i riassunti mostrano tutto, terminati e server MCP', async ($, on
 
   for (const surface of SURFACES) {
     const ui = await $.ui.mount({ ...PANE, surface })
-    expect((await ui.find({ type: 'Text', text: /^MCP/ }))?.text).toBe('MCP       Gmail 4k · Drive 4k · +2')
+    if (surface === SURFACES[0]) await ui.press({ key: 'tab-token' })
+    expect((await ui.find({ type: 'Text', text: /^MCP/ }))?.text).toBe('MCP      Gmail  4k')
+    expect((await ui.find({ type: 'Text', text: /altri$/ }))?.text).toBe('         +2 altri')
     expect(await card(ui, /^Gmail 4k\n/)).toBe('Gmail 4k\nDrive 4k\nCalendar 3k\nGamma 3k')
     expect(await card(ui, /^✓ task d2\n/)).toBe('✓ task d2\n✓ task d1')
-    // Each card right under its row: MCP is the 13th row, '+2 terminati' the 21st.
-    expect((await ui.find({ type: 'Box', text: /^Gmail 4k\n/ }))?.props.top).toBe(13)
-    expect((await ui.find({ type: 'Box', text: /^✓ task d2\n/ }))?.props.top).toBe(21)
+    // Each card right under its row: '+2 altri' is row 14, '+2 terminati' row 22.
+    expect((await ui.find({ type: 'Box', text: /^Gmail 4k\n/ }))?.props.top).toBe(15)
+    expect((await ui.find({ type: 'Box', text: /^✓ task d2\n/ }))?.props.top).toBe(23)
     await ui.unmount()
   }
 })
@@ -1009,10 +1040,10 @@ test('tooltip: vicino al fondo del pannello la scheda si apre sopra la riga', as
   const done = (n: number): AgentInfo => ({ ...running(`d${n}`), status: 'completed' })
   on('agent.list', () => ({ value: [done(1), done(2), done(3), done(4), done(5), done(6), done(7)] }))
 
-  // 14 rows: two finished agents fit, then '+5 terminati' on the last row; its card of five lines goes above.
+  // 14 rows: no finished agent fits, '+7 terminati' is the last row (14); its card of seven lines goes above.
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal', props: { ...PANE.props, scroll: { offset: 0, bodyRows: 14 } } })
-  const hiddenCard = await ui.find({ type: 'Box', text: /^✓ task d5\n/ })
-  expect(hiddenCard?.text).toBe('✓ task d5\n✓ task d4\n✓ task d3\n✓ task d2\n✓ task d1')
-  expect(hiddenCard?.props.top).toBe(13 - 7)
+  const hiddenCard = await ui.find({ type: 'Box', text: /^✓ task d7\n/ })
+  expect(hiddenCard?.text).toBe(['d7', 'd6', 'd5', 'd4', 'd3', 'd2', 'd1'].map(d => `✓ task ${d}`).join('\n'))
+  expect(hiddenCard?.props.top).toBe(14 - 9)
   await ui.unmount()
 })

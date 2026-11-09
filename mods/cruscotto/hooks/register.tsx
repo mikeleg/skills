@@ -52,8 +52,6 @@ const HISTORY_TURNS = 60
 const LIVE_MIN = 200
 const LIVE_MAX = 300
 const SPARK = '▁▂▃▄▅▆▇█'
-/** The left column of the token rows. */
-const ROW_LABEL = 10
 
 /** How long the end-of-work line stays lit in the pane. */
 const BANNER_MS = 6_000
@@ -99,6 +97,8 @@ const tools = atom(
 )
 const context = atom({ plugin: 'cruscotto', key: 'context' } as const, null, { shape: 'context-1' })
 const done = atom({ plugin: 'cruscotto', key: 'done' } as const, null, { shape: 'done-1' })
+/** The sub-tab shown under Sessione. */
+const subTab = atom({ plugin: 'cruscotto', key: 'subTab' } as const, 'costo')
 
 type AgentRow = AgentInfo & Partial<CruscottoAgent>
 
@@ -512,11 +512,6 @@ function writtenText(input: Record<string, unknown>): string {
   return ''
 }
 
-/** One row of the token section: its label in a fixed column, then its parts. */
-function rowLabel(label: string): string {
-  return label.padEnd(ROW_LABEL)
-}
-
 export const register: Register = (on, options) => {
   cacheTtlMs = options.cacheTtl === '1h' ? 60 * 60_000 : 5 * 60_000
   notifyAfterMs = NOTIFY_AFTER[String(options.notifyAfter ?? '30s')] ?? (NOTIFY_AFTER['30s'] as number)
@@ -722,8 +717,8 @@ export const register: Register = (on, options) => {
   })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
-    const { Box, Text } = $.ui.resolve(e)
-    const [usage, list, now, mainModel, known, cwd, mainEffort, cachedBranch, spent, out, shape, ended] = await Promise.all([
+    const { Box, Text, Button } = $.ui.resolve(e)
+    const [usage, list, now, mainModel, known, cwd, mainEffort, cachedBranch, spent, out, shape, ended, tab] = await Promise.all([
       $.session.usage(),
       $.agent.list(),
       $.clock.now(),
@@ -736,6 +731,7 @@ export const register: Register = (on, options) => {
       read($, tools),
       read($, context),
       read($, done),
+      read($, subTab),
     ])
     unseenTicks = 0
     tweening = false
@@ -791,9 +787,8 @@ export const register: Register = (on, options) => {
       return node
     }
 
-    // Header: what runs, where, and what it has cost.
+    // Header: what runs and where.
     const sign = mainRunning ? SPINNER[tick % SPINNER.length] : '◆'
-    const cost = usage.cost === undefined ? '' : `${usage.cost.usd.toFixed(2)} $`
     const lit = now < flashUntil
     const place = cachedBranch.value === null ? folderName(cwd) : `⎇ ${cachedBranch.value}`
     const header = tip('header', (
@@ -802,9 +797,8 @@ export const register: Register = (on, options) => {
           <Text color={HEADER}>{sign} </Text>
           {cachedBranch.value === null ? <Text bold>{folderName(cwd)}</Text> : <Text color={HEADER}>⎇ {cachedBranch.value}</Text>}
         </Text>
-        <Text bold={lit} color={lit ? AMBER : SECONDARY}>{cost}</Text>
       </Box>
-    ), cachedBranch.value === null ? cwd : `⎇ ${cachedBranch.value}\n${cwd}`, place.length + cost.length + 3 > width)
+    ), cachedBranch.value === null ? cwd : `⎇ ${cachedBranch.value}\n${cwd}`, place.length + 2 > width)
 
     // The strip: the running light while the work goes on, solid green once it is done.
     const stripState: StripState = isScanning()
@@ -895,66 +889,92 @@ export const register: Register = (on, options) => {
         </Text>
       )
     }
-    const legend = parts.length === 0 ? null : (
-      <Text wrap="truncate-end">
+    const partNames = parts.map(p => PART_NAMES[p.name] ?? p.name.toLowerCase())
+    const nameWidth = Math.max(0, ...partNames.map(n => n.length))
+    const tokenWidth = Math.max(0, ...parts.map(p => tokens(p.tokens).length))
+    const legend = parts.length === 0 ? null : parts.map((p, i) => (
+      <Text key={p.name}>
         {'      '}
-        {parts.map((p, i) => [
-          <Text color={SEGMENTS[i % SEGMENTS.length]}>■</Text>,
-          <Text color={SECONDARY}>{` ${PART_NAMES[p.name] ?? p.name.toLowerCase()} ${tokens(p.tokens)} `}</Text>,
-        ])}
+        <Text color={SEGMENTS[i % SEGMENTS.length]}>■</Text>
+        {` ${(partNames[i] ?? '').padEnd(nameWidth)} `}
+        <Text color={SECONDARY}>
+          {tokens(p.tokens).padStart(tokenWidth)}
+          {window ? `  ${String(Math.round(p.tokens / window * 100)).padStart(3)}%` : ''}
+        </Text>
       </Text>
-    )
+    ))
 
     // Cache: how much of the prompt it served, and how long it stays warm.
     const hit = hitRate(spent.total)
     const cacheBar = hit === undefined ? null : (
       <Text wrap="truncate-end">
-        {'cache '}{bar('cache', hit, barCells, hit >= 80 ? HEADER : hit >= 50 ? AMBER : RED)}
+        {'cache    '}{bar('cache', hit, barCells - 3, hit >= 80 ? HEADER : hit >= 50 ? AMBER : RED)}
         {` ${hit}% hit`}
         <Text color={SECONDARY}>{` · ${tokens(spent.total.cacheRead)} letti`}</Text>
       </Text>
     )
     let cacheClock = null
     if (mainRunning) {
-      cacheClock = <Text color={HEADER}>{`      ${ORBIT[Math.floor(now / 240) % ORBIT.length]} cache in uso`}</Text>
+      cacheClock = <Text color={HEADER}>{`         ${ORBIT[Math.floor(now / 240) % ORBIT.length]} cache in uso`}</Text>
     } else if (spent.lastMainAt !== null) {
       const left = spent.lastMainAt + cacheTtlMs - now
       cacheClock = left > 0
-        ? <Text color={left < 60_000 ? AMBER : HEADER}>{`      ◷ cache calda ancora ${countdown(left)}`}</Text>
+        ? <Text color={left < 60_000 ? AMBER : HEADER}>{`         ◷ cache calda ancora ${countdown(left)}`}</Text>
         : (
             <Text color={RED} wrap="truncate-end">
-              {`      ⚠ cache scaduta${used === undefined ? '' : `: il prossimo turno riscrive ~${tokens(used)}`}`}
+              {`         ⚠ cache scaduta${used === undefined ? '' : `: il prossimo turno riscrive ~${tokens(used)}`}`}
             </Text>
           )
     }
-    const last = spent.last === null ? null : (
-      <Text wrap="truncate-end" color={SECONDARY}>
-        {`turno ↓${tokens(spent.last.input + spent.last.cacheRead + spent.last.cacheWrite)} ↑${tokens(spent.last.output)}`}
-        {hitRate(spent.last) === undefined ? '' : ` · cache ${hitRate(spent.last)}%`}
-        {spent.last.costUsd === undefined ? '' : <Text bold={lit} color={lit ? AMBER : SECONDARY}>{` · +${spent.last.costUsd.toFixed(2)} $`}</Text>}
+    const totalRow = usage.cost === undefined ? null : (
+      <Text wrap="truncate-end">
+        {'totale   '}
+        <Text bold color={lit ? AMBER : undefined}>{`${usage.cost.usd.toFixed(2)} $`}</Text>
       </Text>
     )
-
-    // Where the tokens go, the main loop's alone: what tools gave it, what it wrote,
-    // what weighs on every request, files read again, MCP schemas, the turns' trace.
-    const ranked = (entries: Record<string, { tokens: number; calls: number }>) =>
-      Object.entries(entries)
-        .filter(([, t]) => t.tokens > 0)
-        .sort((a, b) => b[1].tokens - a[1].tokens)
-        .map(([name, t]) => `${name} ${tokens(t.tokens)}×${t.calls}`)
-    /** A ranked row: its top entries, every one of them on hover when more were left out or it is cut. */
-    const rankedRow = (id: string, label: string, entries: string[]) => {
-      if (entries.length === 0) return null
-      const shown = entries.slice(0, TOP_TOOLS).join(' · ')
-      return tip(id, (
-        <Text wrap="truncate-end">
-          <Text color={SECONDARY}>{rowLabel(label)}</Text>
-          {shown}
+    const last = spent.last === null ? null : (
+      <Text wrap="truncate-end">
+        {'turno    '}
+        {spent.last.costUsd === undefined ? '' : <Text bold={lit} color={lit ? AMBER : undefined}>{`+${spent.last.costUsd.toFixed(2)} $`}</Text>}
+        <Text color={SECONDARY}>
+          {`  ↓${tokens(spent.last.input + spent.last.cacheRead + spent.last.cacheWrite)} ↑${tokens(spent.last.output)}`}
+          {hitRate(spent.last) === undefined ? '' : ` · cache ${hitRate(spent.last)}%`}
         </Text>
-      ), entries.join('\n'), entries.length > TOP_TOOLS || ROW_LABEL + shown.length > width)
+      </Text>
+    )
+    const costSection = [totalRow, last, cacheBar, cacheClock].filter(r => r !== null)
+
+    // Where the tokens go, the main loop's alone: the turns' trace, what tools gave it, what it
+    // wrote, what weighs on every request, files read again, MCP schemas. One row an entry,
+    // columns aligned; what a group leaves out is on hover over its first row.
+    const indent = ' '.repeat(9)
+    /** The label on a group's first row, the indent on the rest. */
+    const groupLabel = (i: number, text: string) => (i === 0 ? text.padEnd(9) : indent)
+    /** A row: its label, the name in the default colour, the numbers in SECONDARY. */
+    const groupRow = (key: string, label: string, labelColor: string, name: string, numbers: string) => (
+      <Text key={key} wrap="truncate-end">
+        <Text color={labelColor}>{label}</Text>
+        {name}
+        <Text color={SECONDARY}>{numbers}</Text>
+      </Text>
+    )
+    /** The top entries of a tally, aligned; all of them on hover when some were left out. */
+    const rankedRows = (id: string, label: string, tally: Record<string, { tokens: number; calls: number }>) => {
+      const all = Object.entries(tally).filter(([, t]) => t.tokens > 0).sort((a, b) => b[1].tokens - a[1].tokens)
+      const shown = all.slice(0, TOP_TOOLS)
+      const nameWidth = Math.max(0, ...shown.map(([name]) => name.length))
+      const tokensWidth = Math.max(0, ...shown.map(([, t]) => tokens(t.tokens).length))
+      const callsWidth = Math.max(0, ...shown.map(([, t]) => `×${t.calls}`.length))
+      return shown.map(([name, t], i) => {
+        const row = groupRow(
+          `${id}-${name}`, groupLabel(i, label), SECONDARY,
+          name.padEnd(nameWidth), `  ${tokens(t.tokens).padStart(tokensWidth)}  ${`×${t.calls}`.padStart(callsWidth)}`,
+        )
+        return i > 0 ? row : tip(id, row, all.map(([n, x]) => `${n} ${tokens(x.tokens)} ×${x.calls}`).join('\n'), all.length > TOP_TOOLS)
+      })
     }
-    const toolRow = rankedRow('output', 'output', ranked(out.byTool))
-    const writtenRow = rankedRow('written', 'scritto', ranked(out.written))
+    const toolRows = rankedRows('output', 'output', out.byTool)
+    const writtenRows = rankedRows('written', 'scritto', out.written)
     // Each output still in the context is sent again with every request since it arrived.
     const weighed = out.live
       .map(o => ({ ...o, resent: Math.max(0, out.requests - o.at) }))
@@ -962,40 +982,47 @@ export const register: Register = (on, options) => {
       .filter(o => o.weight > 0)
     const heaviest = weighed.reduce<(typeof weighed)[number] | undefined>((max, o) => (max === undefined || o.weight > max.weight ? o : max), undefined)
     const totalWeight = weighed.reduce((n, o) => n + o.weight, 0)
-    let weightRow = null
+    const weightRows: RenderChildren[] = []
     if (heaviest !== undefined && heaviest.weight >= 10_000) {
-      const shown = `${heaviest.tool}${heaviest.label === '' ? '' : ` ${clip(heaviest.label, 22)}`} ${tokens(heaviest.tokens)} ×${heaviest.resent} ≈${tokens(heaviest.weight)}`
-      const all = weighed.length > 1 ? ` · tutti ≈${tokens(totalWeight)}` : ''
+      const name = `${heaviest.tool}${heaviest.label === '' ? '' : ` ${clip(heaviest.label, 22)}`}`
+      const numbers = `  ${tokens(heaviest.tokens)} ×${heaviest.resent} ≈${tokens(heaviest.weight)}`
       const byWeight = [...weighed].sort((a, b) => b.weight - a.weight).slice(0, 8)
-      weightRow = tip('weight', (
-        <Text wrap="truncate-end">
-          <Text color={heaviest.weight >= 1_000_000 ? AMBER : SECONDARY}>{rowLabel('↯ peso')}</Text>
-          {shown}
-          <Text color={SECONDARY}>{all}</Text>
-        </Text>
-      ), byWeight.map(o => `${o.tool}${o.label === '' ? '' : ` ${o.label}`}: ${tokens(o.tokens)} rimandati ${o.resent} volte ≈${tokens(o.weight)}`).join('\n'),
-      heaviest.label.length > 22 || weighed.length > 1 || ROW_LABEL + shown.length + all.length > width)
+      weightRows.push(tip(
+        'weight',
+        groupRow('weight', groupLabel(0, 'peso'), heaviest.weight >= 1_000_000 ? AMBER : SECONDARY, name, numbers),
+        byWeight.map(o => `${o.tool}${o.label === '' ? '' : ` ${o.label}`}: ${tokens(o.tokens)} rimandati ${o.resent} volte ≈${tokens(o.weight)}`).join('\n'),
+        heaviest.label.length > 22 || weighed.length > 1 || 9 + name.length + numbers.length > width,
+      ))
+      if (weighed.length > 1) weightRows.push(groupRow('weight-all', indent, SECONDARY, '', `tutti ≈${tokens(totalWeight)}`))
     }
-    const rereads = Object.entries(out.reads).filter(([, n]) => n >= REREAD_AT).sort((a, b) => b[1] - a[1])
-    const rereadShown = rereads.slice(0, TOP_REREADS).map(([p, n]) => `${baseName(p)} ×${n}`).join(' · ')
-    const rereadRow = rereads.length === 0 ? null : tip('rereads', (
-      <Text wrap="truncate-end">
-        <Text color={AMBER}>{rowLabel('⟳ riletti')}</Text>
-        {rereadShown}
-      </Text>
-    ), rereads.map(([p, n]) => `${p} ×${n}`).join('\n'), rereads.length > TOP_REREADS || ROW_LABEL + rereadShown.length > width)
+    const allRereads = Object.entries(out.reads).filter(([, n]) => n >= REREAD_AT).sort((a, b) => b[1] - a[1])
+    const rereads = allRereads.slice(0, TOP_REREADS)
+    const rereadNameWidth = Math.max(0, ...rereads.map(([p]) => baseName(p).length))
+    const rereadCountWidth = Math.max(0, ...rereads.map(([, n]) => `×${n}`.length))
+    const rereadRows = rereads.map(([p, n], i) => {
+      const row = groupRow(
+        `reread-${p}`, groupLabel(i, 'riletti'), AMBER,
+        baseName(p).padEnd(rereadNameWidth), `  ${`×${n}`.padStart(rereadCountWidth)}`,
+      )
+      // The whole paths on hover: the names alone can be two files.
+      return i > 0 ? row : tip('rereads', row, allRereads.map(([path, k]) => `${path} ×${k}`).join('\n'), true)
+    })
     const mcp = shape === null ? [] : shape.mcp
-    const mcpShown = mcp.slice(0, 2).map(s => `${s.server} ${tokens(s.tokens)}`).join(' · ')
-    const mcpRow = mcp.length === 0 ? null : tip('mcp', (
-      <Text wrap="truncate-end">
-        <Text color={SECONDARY}>{rowLabel('MCP')}</Text>
-        {mcpShown}
-        <Text color={SECONDARY}>{mcp.length > 2 ? ` · +${mcp.length - 2}` : ''}</Text>
-      </Text>
-    ), mcp.map(s => `${s.server} ${tokens(s.tokens)}`).join('\n'), mcp.length > 2 || ROW_LABEL + mcpShown.length + 6 > width)
+    const mcpShown = mcp.slice(0, 2)
+    const mcpNameWidth = Math.max(0, ...mcpShown.map(s => s.server.length))
+    const mcpTokensWidth = Math.max(0, ...mcpShown.map(s => tokens(s.tokens).length))
+    const mcpRows = [
+      ...mcpShown.map((s, i) => groupRow(
+        `mcp-${s.server}`, groupLabel(i, 'MCP'), SECONDARY,
+        s.server.padEnd(mcpNameWidth), `  ${tokens(s.tokens).padStart(mcpTokensWidth)}`,
+      )),
+      ...(mcp.length > 2
+        ? [tip('mcp', groupRow('mcp-more', indent, SECONDARY, '', `+${mcp.length - 2} altri`), mcp.map(s => `${s.server} ${tokens(s.tokens)}`).join('\n'), true)]
+        : []),
+    ]
     // The trace: the context at the end of each turn, one cell a turn, a compaction in violet.
-    const history = spent.history.slice(-Math.max(1, width - ROW_LABEL - 8))
-    let traceRow = null
+    const history = spent.history.slice(-Math.max(1, width - 9 - 8))
+    const traceRows: RenderChildren[] = []
     if (history.length >= 2) {
       const runs: StripCell[] = []
       for (const turn of history) {
@@ -1009,19 +1036,28 @@ export const register: Register = (on, options) => {
         else runs.push(cell)
       }
       const delta = (history[history.length - 1]?.ctx ?? 0) - (history[history.length - 2]?.ctx ?? 0)
-      traceRow = (
-        <Text wrap="truncate-end">
-          <Text color={SECONDARY}>{rowLabel('turni')}</Text>
+      traceRows.push(
+        <Text key="trace" wrap="truncate-end">
+          <Text color={SECONDARY}>{groupLabel(0, 'turni')}</Text>
           {runs.map(r => <Text color={r.color}>{r.char}</Text>)}
           <Text color={delta >= 20_000 ? AMBER : SECONDARY}>{` ${delta >= 0 ? '+' : '−'}${tokens(Math.abs(delta))}`}</Text>
-        </Text>
+        </Text>,
       )
     }
-    const spending = [traceRow, toolRow, writtenRow, weightRow, rereadRow, mcpRow].filter(r => r !== null)
+    const spending = [...traceRows, ...toolRows, ...writtenRows, ...weightRows, ...rereadRows, ...mcpRows]
+
+    // The sub-tabs: one of the two sections at a time, the tab row hidden when both are empty.
+    const hasTabs = costSection.length > 0 || spending.length > 0
+    const tabRows = tab === 'costo' ? costSection : spending
+    const tabButton = (value: 'costo' | 'token', label: string) => (
+      <Button key={`tab-${value}`} plain onPress={() => update($, subTab, () => value)}>
+        <Text bold={tab === value} color={tab === value ? HEADER : SECONDARY}>{`[${label}]`}</Text>
+      </Button>
+    )
 
     // Subagents: as many finished ones as the pane has rows left for.
-    const fixedRows = 2 + (doneRow ? 1 : 0) + 2 + limits.length + 2 + 2 + (legend ? 1 : 0) + (cacheBar ? 1 : 0) + (cacheClock ? 1 : 0)
-      + (last ? 1 : 0) + (spending.length > 0 ? 2 + spending.length : 0) + 2 + active.length
+    const fixedRows = 2 + (doneRow ? 1 : 0) + 2 + limits.length + 2 + 2 + parts.length
+      + (hasTabs ? 2 + Math.max(1, tabRows.length) : 0) + 2 + active.length
     const finishedShown = clamp(room - fixedRows - 1, 0, FINISHED_MAX)
     const modelWidth = Math.min(
       MODEL_WIDTH_MAX,
@@ -1069,9 +1105,19 @@ export const register: Register = (on, options) => {
         <Text color={SECONDARY}>{` · effort ${mainEffort ?? NON_DISPONIBILE}`}</Text>
       </Text>,
     )
-    for (const row of [contextBar, legend, cacheBar, cacheClock, last]) put(row)
-    if (spending.length > 0) put(heading('Dove vanno i token'), 2)
-    spending.forEach(row => put(row))
+    put(contextBar)
+    ;(legend ?? []).forEach(row => put(row))
+    if (hasTabs) {
+      put(
+        <Box marginTop={1} flexDirection="row" columnGap={2}>
+          {tabButton('costo', 'Costo e cache')}
+          {tabButton('token', 'Dove vanno i token')}
+        </Box>,
+        2,
+      )
+      if (tabRows.length === 0) put(<Text color={SECONDARY}>Niente da mostrare.</Text>)
+      tabRows.forEach(row => put(row))
+    }
     put(heading('Subagent', ` ${active.length} attivi · ${rows.length} totali${agentTokens > 0 ? ` · ${tokens(agentTokens)}` : ''}`), 2)
     if (rows.length === 0) put(<Text color={SECONDARY}>Nessun subagent in questa sessione.</Text>)
     agentRows.forEach(row => put(row))
