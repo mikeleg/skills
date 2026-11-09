@@ -58,6 +58,9 @@ Order is dependency order. A slice with no "Blocked by" can start in parallel.
 - Given <invalid or edge case>, when <action>, then <what happens instead>.
 - …
 
+### Seams  *(agent / pair profiles; team: optional)*
+- <public interface the tests go through, e.g. `POST /api/x`, `cli run`, `parseInvoice()`> – covers AC1, AC2. Catches <…>; misses <…>.
+
 ### Implementation notes  *(agent / pair profiles; team can skip)*
 - Touch: <files/modules>. Do not touch: <files/modules>.
 - Interfaces to respect: <…>
@@ -90,6 +93,10 @@ Riskiest assumption from the interview: *the docs are good enough that a draft i
 - Given a message posted in #support-test, when the bot runs, then within 60s a draft reply appears as a thread reply prefixed "[draft]".
 - Given the message asks about a topic covered in docs/, when the draft is produced, then it cites at least one doc path that actually contains the answer.
 - Given the message is a greeting with no question, when the bot runs, then no draft is posted and the event is logged as "skipped: no question".
+
+### Seams
+- `draft(message, docs)` – covers AC2, AC3. Catches wrong retrieval and the no-question case; misses Slack wiring.
+- Slack event handler, driven with a recorded event payload – covers AC1. Catches threading and the "[draft]" prefix; misses real Slack latency.
 
 ### Implementation notes
 - Touch: new `src/bot/` (Slack events), `src/retrieval/` (naive embedding over docs/*.md), `src/draft.ts`. Do not touch: existing `src/web/`.

@@ -9,7 +9,7 @@ Agent skills by mikeleg, installable with [skills.sh](https://skills.sh) or as a
 | Skill | What it does | Requirements |
 | --- | --- | --- |
 | `shape-it` | Turns a product idea, MVP or feature into a scoped plan and a backlog of vertical slices with acceptance criteria. Writes markdown in the repo and can publish it as tickets. | Optional: `gh` or `az` to publish the backlog to GitHub Issues or Azure DevOps Boards. |
-| `implement` | Implements a spec or set of tickets, using `tdd` where it fits, then simplifies the code, reviews it with `/code-review` and commits. | Claude Code (uses the `/simplify` and `/code-review` skills when available). |
+| `implement` | Implements a slice, spec or set of tickets test-first from its acceptance criteria, checks the result against the spec, simplifies it, reviews it with `/code-review`, guards the quality floor (no new suppressions, skipped tests or removed assertions) and commits. | Claude Code (uses the `/simplify` and `/code-review` skills when available). |
 | `tdd` | Fixes a bug test-first: writes a focused regression test that fails before the fix and passes after it, or the closest practical check when a test isn't worth it. Runs only when invoked explicitly. | None. |
 
 ### Work
