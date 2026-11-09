@@ -30,7 +30,7 @@ Agent skills by mikeleg, installable with [skills.sh](https://skills.sh) or as a
 
 | Mod | What it does |
 | --- | --- |
-| `cruscotto` | Side pane in Claude Code, kept to one tab: usage limits, context split by category, prompt-cache hit rate and countdown, where the tokens go (tool outputs, files read again, MCP schemas) and subagents with their tokens. A light runs back and forth along a strip while the work goes on and turns solid green when it is done; it also tells you when the work is done (a band in the pane, a toast, a system notification and a chime for longer turns). Open it with `/cruscotto`. |
+| `cruscotto` | Side pane in Claude Code, kept to one tab: usage limits, context split by category, prompt-cache hit rate and countdown, where your tokens go in the main thread (a turn-by-turn trace of the context, tool outputs, what the model writes, the outputs that weigh most on every request, files read again, MCP schemas) and subagents with their tokens. A light runs back and forth along a strip while the work goes on and turns solid green when it is done; it also tells you when the work is done (a band in the pane, a toast, a system notification and a chime for longer turns). Open it with `/cruscotto`. |
 
 ## Install
 

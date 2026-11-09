@@ -23,6 +23,8 @@ const CELLS = 30
 const LIMIT_CELLS = 16
 const ORBIT = '[◐◓◑◒]'
 const GREEN = '#81C784'
+/** What a compaction leaves: one message. */
+const SUMMARY = [{ role: 'user' as const, text: 'riassunto', toolUses: [] }]
 
 function usage(partial: Partial<SessionUsage> = {}): SessionUsage {
   return {
@@ -271,25 +273,26 @@ test('cache: durata di un\'ora dalle opzioni', { options: { cacheTtl: '1h' } }, 
   await ui.unmount()
 })
 
-test('dove vanno i token: output dei tool, il più grosso e i file riletti', async ($, on) => {
+test('dove vanno i token: solo il thread principale', async ($, on) => {
   mock.clock(on, { now: NOW })
   host(on)
   on('session.usage', () => ({ value: usage() }))
   on('agent.list', () => ({ value: [] }))
-  const outputs: Record<string, string> = { Bash: 'x'.repeat(48_000), Read: 'y'.repeat(4_000), Grep: 'z'.repeat(400) }
-  on('tool.call', (_, e) => ({ result: {}, text: outputs[e.tool] ?? '' }))
+  const outputs: Record<string, string> = { Bash: 'x'.repeat(48_000), Read: 'y'.repeat(4_000) }
+  on('tool.call', (_, e) => ({ result: {}, text: e.agentId === undefined ? outputs[e.tool] ?? '' : 'z'.repeat(400_000) }))
 
-  await $.tool.call({ tool: 'Bash', command: 'npm test -- --reporter verbose' })
+  await $.tool.call({ tool: 'Bash', command: 'npm test' })
   for (let i = 0; i < 4; i++) await $.tool.call({ tool: 'Read', file_path: '/r/src/register.tsx' })
-  await $.tool.call({ tool: 'Read', file_path: '/r/a.ts' })
-  await $.tool.call({ tool: 'Grep', pattern: 'atom' })
+  // A subagent's outputs stay in its own context.
+  await $.tool.call({ tool: 'Bash', command: 'find /', agentId: 'a1' })
+  for (let i = 0; i < 3; i++) await $.tool.call({ tool: 'Read', file_path: '/r/src/register.tsx', agentId: 'a1' })
 
   for (const surface of SURFACES) {
     const ui = await $.ui.mount({ ...PANE, surface })
     expect(await ui.find({ type: 'Text', text: /Dove vanno i token/ })).toBeDefined()
     await ui.press({ key: 'tab-token' })
     expect((await ui.find({ type: 'Text', text: /^output/ }))?.text).toBe('output   Bash  12k  ×1')
-    expect((await ui.find({ type: 'Text', text: /^max/ }))?.text).toBe('max      Bash npm test -- --reporter verb…  12k')
+    expect((await ui.find({ type: 'Text', text: /^ +Read/ }))?.text).toBe('         Read   4k  ×4')
     expect((await ui.find({ type: 'Text', text: /^riletti/ }))?.text).toBe('riletti  register.tsx  ×4')
     await ui.unmount()
   }
@@ -313,6 +316,97 @@ test('sotto-schede: costo e cache di default, i token con la scheda 2', async ($
     await ui.press({ key: 'tab-costo' })
     expect(await ui.find({ type: 'Text', text: /^totale/ })).toBeDefined()
     await ui.unmount()
+  }
+})
+
+test('dove vanno i token: quello che il modello scrive', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  host(on)
+  on('session.usage', () => ({ value: usage() }))
+  on('agent.list', () => ({ value: [] }))
+  on('tool.call', () => ({ result: {}, text: 'ok' }))
+
+  await $.tool.call({ tool: 'Write', file_path: '/r/a.ts', content: 'w'.repeat(36_000) })
+  await $.tool.call({ tool: 'Edit', file_path: '/r/a.ts', old_string: 'w', new_string: 'e'.repeat(12_000) })
+  await $.tool.call({ tool: 'Write', file_path: '/r/b.ts', content: 'w'.repeat(80_000), agentId: 'a1' })
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await ui.press({ key: 'tab-token' })
+  expect((await ui.find({ type: 'Text', text: /^scritto/ }))?.text).toBe('scritto  Write  9k  ×1')
+  expect((await ui.find({ type: 'Text', text: /^ +Edit +3k/ }))?.text).toBe('         Edit   3k  ×1')
+  await ui.unmount()
+})
+
+test('dove vanno i token: il peso di un output rimandato a ogni richiesta, finché la compattazione lo toglie', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  host(on)
+  on('session.usage', () => ({ value: usage() }))
+  on('agent.list', () => ({ value: [] }))
+  const outputs: Record<string, string> = { Bash: 'x'.repeat(32_000), Read: 'y'.repeat(8_000), Grep: 'g'.repeat(100) }
+  on('tool.call', (_, e) => ({ result: {}, text: outputs[e.tool] ?? '' }))
+  on('session.compact', () => ({ messages: SUMMARY }))
+  const step = stepper($, on)
+
+  await step(undefined, 'high')
+  await $.tool.call({ tool: 'Bash', command: 'npm test -- --verbose' })
+  await $.tool.call({ tool: 'Read', file_path: '/r/a.ts' })
+  await $.tool.call({ tool: 'Grep', pattern: 'x' })
+  // A subagent's requests do not send the main context again.
+  for (let i = 0; i < 5; i++) await step('a1', 'low')
+  for (let i = 0; i < 10; i++) await step(undefined, 'high')
+
+  let ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await ui.press({ key: 'tab-token' })
+  expect((await ui.find({ type: 'Text', text: /^peso/ }))?.text).toBe('peso     Bash npm test -- --verbose  8k ×10 ≈80k')
+  expect((await ui.find({ type: 'Text', text: /tutti/ }))?.text).toBe('         tutti ≈100k')
+  await ui.unmount()
+
+  // A subagent's compaction leaves the main context as it was.
+  await $.session.compact({ trigger: 'auto', messages: SUMMARY, agentId: 'a1' })
+  ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: /^peso/ })).toBeDefined()
+  await ui.unmount()
+
+  await $.session.compact({ trigger: 'manual', messages: SUMMARY })
+  ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: /^peso/ })).toBeUndefined()
+  // What happened stays counted.
+  expect((await ui.find({ type: 'Text', text: /^output/ }))?.text).toBe('output   Bash  8k  ×1')
+  expect((await ui.find({ type: 'Text', text: /^ +Grep/ }))?.text).toBe('         Grep  25  ×1')
+  await ui.unmount()
+})
+
+test('dove vanno i token: la traccia del contesto turno per turno, la compattazione in viola', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  host(on)
+  let ctx = 20_000
+  on('session.usage', () => ({ value: usage({ context: { tokens: ctx, window: 200_000, percent: Math.round(ctx / 2_000) } }) }))
+  on('agent.list', () => ({ value: [] }))
+  on('turn.complete', () => ({ text: '' }))
+  on('session.compact', () => ({ messages: SUMMARY }))
+
+  await $.turn.complete(closed('1'))
+  let ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await ui.press({ key: 'tab-token' })
+  // One turn is not a trace yet.
+  expect(await ui.find({ type: 'Text', text: /^turni/ })).toBeUndefined()
+  await ui.unmount()
+
+  for (const next of [60_000, 70_000, 130_000, 190_000]) {
+    ctx = next
+    await $.turn.complete(closed('n'))
+  }
+  ctx = 30_000
+  await $.session.compact({ trigger: 'auto', messages: SUMMARY })
+  await $.turn.complete(closed('dopo'))
+
+  for (const surface of SURFACES) {
+    const view = await $.ui.mount({ ...PANE, surface })
+    const trace = await view.find({ type: 'Text', text: /^turni/ })
+    expect(trace?.text).toBe('turni    ▁▃▃▆█▂ −160k')
+    const colors = (trace?.children ?? []).slice(1, -1).map(c => (c as { props: { color?: string } }).props.color)
+    expect(colors).toEqual(['#80CBC4', '#FFCC80', '#EF9A9A', '#B39DDB'])
+    await view.unmount()
   }
 })
 
@@ -877,4 +971,79 @@ test('striscia sul terminale: ridisegnata in posto a ~30 fotogrammi, poi verde',
   const solid = decode(String((await done.find({ key: 'strip' }))?.props.cells))
   expect(solid.every(c => c.char === '━' && c.fg === 0x81c784)).toBe(true)
   await done.unmount()
+})
+
+/** The hover card of a row: hidden until the pointer is over the row, the whole text inside. */
+async function card(ui: { find: (query: { type: string; text: RegExp }) => Promise<{ text: string } | undefined> }, text: RegExp) {
+  return (await ui.find({ type: 'Text', text }))?.text
+}
+
+test('tooltip: una descrizione tagliata si legge intera al passaggio del puntatore', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  host(on)
+  on('session.usage', () => ({ value: usage() }))
+  const long = 'Explore the repository and list every place where the mod reads usage, with file and line'
+  on('agent.list', () => ({ value: [{ ...running('a1'), description: long }, { ...running('a2'), description: 'corto' }] }))
+
+  for (const surface of SURFACES) {
+    const ui = await $.ui.mount({ ...PANE, surface })
+    const full = await ui.find({ type: 'Text', text: new RegExp(`^${long}\\n`) })
+    expect(full?.text).toMatch(/\ngeneral-purpose · – · effort – · – · – token$/)
+    // The card is hidden, drawn last over the rows: hovering the row reveals it.
+    const box = await ui.find({ type: 'Box', text: new RegExp(`^${long}\\n`) })
+    expect(box?.props.display).toBe('none')
+    expect(box?.props.position).toBe('absolute')
+    // Placed under its row: the agent rows are the last ones, so the card goes above when it does not fit below.
+    expect(typeof box?.props.top).toBe('number')
+    // A row that fits has no card.
+    expect(await card(ui, /^corto\n/)).toBeUndefined()
+    await ui.unmount()
+  }
+})
+
+test('tooltip: i riassunti mostrano tutto, terminati e server MCP', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  host(on)
+  on('session.usage', (_, e) => ({
+    value: usage({
+      context: {
+        tokens: 40_000, window: 200_000, percent: 20,
+        breakdown: e?.breakdown === undefined ? undefined : {
+          categories: [{ name: 'MCP tools', tokens: 12_000, color: 'x', isDeferred: false, kind: 'used' }],
+          mcpTools: ['Gmail', 'Drive', 'Calendar', 'Gamma'].map((serverName, i) => ({ name: `mcp__${i}`, serverName, tokens: 4_000 - i * 500, isLoaded: true })),
+        } as never,
+      },
+    }),
+  }))
+  const done = (n: number): AgentInfo => ({ ...running(`d${n}`), status: 'completed' })
+  on('agent.list', () => ({ value: [done(1), done(2), done(3), done(4), done(5), done(6), done(7)] }))
+  await measure($, on)
+
+  for (const surface of SURFACES) {
+    const ui = await $.ui.mount({ ...PANE, surface })
+    if (surface === SURFACES[0]) await ui.press({ key: 'tab-token' })
+    expect((await ui.find({ type: 'Text', text: /^MCP/ }))?.text).toBe('MCP      Gmail  4k')
+    expect((await ui.find({ type: 'Text', text: /altri$/ }))?.text).toBe('         +2 altri')
+    expect(await card(ui, /^Gmail 4k\n/)).toBe('Gmail 4k\nDrive 4k\nCalendar 3k\nGamma 3k')
+    expect(await card(ui, /^✓ task d2\n/)).toBe('✓ task d2\n✓ task d1')
+    // Each card right under its row: '+2 altri' is row 14, '+2 terminati' row 22.
+    expect((await ui.find({ type: 'Box', text: /^Gmail 4k\n/ }))?.props.top).toBe(15)
+    expect((await ui.find({ type: 'Box', text: /^✓ task d2\n/ }))?.props.top).toBe(23)
+    await ui.unmount()
+  }
+})
+
+test('tooltip: vicino al fondo del pannello la scheda si apre sopra la riga', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  host(on)
+  on('session.usage', () => ({ value: usage() }))
+  const done = (n: number): AgentInfo => ({ ...running(`d${n}`), status: 'completed' })
+  on('agent.list', () => ({ value: [done(1), done(2), done(3), done(4), done(5), done(6), done(7)] }))
+
+  // 14 rows: no finished agent fits, '+7 terminati' is the last row (14); its card of seven lines goes above.
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal', props: { ...PANE.props, scroll: { offset: 0, bodyRows: 14 } } })
+  const hiddenCard = await ui.find({ type: 'Box', text: /^✓ task d7\n/ })
+  expect(hiddenCard?.text).toBe(['d7', 'd6', 'd5', 'd4', 'd3', 'd2', 'd1'].map(d => `✓ task ${d}`).join('\n'))
+  expect(hiddenCard?.props.top).toBe(14 - 9)
+  await ui.unmount()
 })

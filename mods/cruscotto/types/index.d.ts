@@ -25,15 +25,36 @@ export type TokenLedger = {
   last: (TokenCounts & { costUsd?: number }) | null
   /** When the main loop's last turn ended: the prompt cache is warm from there. */
   lastMainAt: number | null
+  /** The main loop's context at the end of each of its last turns, oldest first. */
+  history: { ctx: number; compacted: boolean }[]
+  /** A compaction happened since the main loop's last turn ended. */
+  compactedSince: boolean
 }
 
-/** What the tools gave the model to read, estimated at four characters a token. */
+/** One tool output still in the main loop's context. */
+export type LiveOutput = {
+  tool: string
+  label: string
+  tokens: number
+  /** The main loop's request count when it arrived: every request since sent it again. */
+  at: number
+}
+
+/**
+ * The main loop's tools (a subagent's stay in its own context): what they
+ * gave the model to read and what the model wrote into them, estimated at
+ * four characters a token.
+ */
 export type ToolLedger = {
   byTool: Record<string, { tokens: number; calls: number }>
-  /** The single largest output so far. */
-  biggest: { tool: string; label: string; tokens: number } | null
+  /** What the model generated into a tool's input: a Write's content, an Edit's new text. */
+  written: Record<string, { tokens: number; calls: number }>
   /** How many times each file was read. */
   reads: Record<string, number>
+  /** The main loop's model requests so far. */
+  requests: number
+  /** The outputs since the last compaction, the larger ones. */
+  live: LiveOutput[]
 }
 
 /** The context window's composition, as a /context summary estimated it. */
