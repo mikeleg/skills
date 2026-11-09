@@ -89,6 +89,8 @@ const tools = atom(
 )
 const context = atom({ plugin: 'cruscotto', key: 'context' } as const, null, { shape: 'context-1' })
 const done = atom({ plugin: 'cruscotto', key: 'done' } as const, null, { shape: 'done-1' })
+/** The sub-tab shown under Sessione. */
+const subTab = atom({ plugin: 'cruscotto', key: 'subTab' } as const, 'costo')
 
 type AgentRow = AgentInfo & Partial<CruscottoAgent>
 
@@ -666,8 +668,8 @@ export const register: Register = (on, options) => {
   })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
-    const { Box, Text } = $.ui.resolve(e)
-    const [usage, list, now, mainModel, known, cwd, mainEffort, cachedBranch, spent, out, shape, ended] = await Promise.all([
+    const { Box, Text, Button } = $.ui.resolve(e)
+    const [usage, list, now, mainModel, known, cwd, mainEffort, cachedBranch, spent, out, shape, ended, tab] = await Promise.all([
       $.session.usage(),
       $.agent.list(),
       $.clock.now(),
@@ -680,6 +682,7 @@ export const register: Register = (on, options) => {
       read($, tools),
       read($, context),
       read($, done),
+      read($, subTab),
     ])
     unseenTicks = 0
     tweening = false
@@ -720,9 +723,8 @@ export const register: Register = (on, options) => {
       ]
     }
 
-    // Header: what runs, where, and what it has cost.
+    // Header: what runs and where.
     const sign = mainRunning ? SPINNER[tick % SPINNER.length] : '◆'
-    const cost = usage.cost === undefined ? '' : `${usage.cost.usd.toFixed(2)} $`
     const lit = now < flashUntil
     const header = (
       <Box flexDirection="row" justifyContent="space-between" width={width}>
@@ -730,7 +732,6 @@ export const register: Register = (on, options) => {
           <Text color={HEADER}>{sign} </Text>
           {cachedBranch.value === null ? <Text bold>{folderName(cwd)}</Text> : <Text color={HEADER}>⎇ {cachedBranch.value}</Text>}
         </Text>
-        <Text bold={lit} color={lit ? AMBER : SECONDARY}>{cost}</Text>
       </Box>
     )
 
@@ -822,80 +823,117 @@ export const register: Register = (on, options) => {
         </Text>
       )
     }
-    const legend = parts.length === 0 ? null : (
-      <Text wrap="truncate-end">
+    const partNames = parts.map(p => PART_NAMES[p.name] ?? p.name.toLowerCase())
+    const nameWidth = Math.max(0, ...partNames.map(n => n.length))
+    const tokenWidth = Math.max(0, ...parts.map(p => tokens(p.tokens).length))
+    const legend = parts.length === 0 ? null : parts.map((p, i) => (
+      <Text key={p.name}>
         {'      '}
-        {parts.map((p, i) => [
-          <Text color={SEGMENTS[i % SEGMENTS.length]}>■</Text>,
-          <Text color={SECONDARY}>{` ${PART_NAMES[p.name] ?? p.name.toLowerCase()} ${tokens(p.tokens)} `}</Text>,
-        ])}
+        <Text color={SEGMENTS[i % SEGMENTS.length]}>■</Text>
+        {` ${partNames[i].padEnd(nameWidth)} `}
+        <Text color={SECONDARY}>
+          {tokens(p.tokens).padStart(tokenWidth)}
+          {window ? `  ${String(Math.round(p.tokens / window * 100)).padStart(3)}%` : ''}
+        </Text>
       </Text>
-    )
+    ))
 
     // Cache: how much of the prompt it served, and how long it stays warm.
     const hit = hitRate(spent.total)
     const cacheBar = hit === undefined ? null : (
       <Text wrap="truncate-end">
-        {'cache '}{bar('cache', hit, barCells, hit >= 80 ? HEADER : hit >= 50 ? AMBER : RED)}
+        {'cache    '}{bar('cache', hit, barCells - 3, hit >= 80 ? HEADER : hit >= 50 ? AMBER : RED)}
         {` ${hit}% hit`}
         <Text color={SECONDARY}>{` · ${tokens(spent.total.cacheRead)} letti`}</Text>
       </Text>
     )
     let cacheClock = null
     if (mainRunning) {
-      cacheClock = <Text color={HEADER}>{`      ${ORBIT[Math.floor(now / 240) % ORBIT.length]} cache in uso`}</Text>
+      cacheClock = <Text color={HEADER}>{`         ${ORBIT[Math.floor(now / 240) % ORBIT.length]} cache in uso`}</Text>
     } else if (spent.lastMainAt !== null) {
       const left = spent.lastMainAt + cacheTtlMs - now
       cacheClock = left > 0
-        ? <Text color={left < 60_000 ? AMBER : HEADER}>{`      ◷ cache calda ancora ${countdown(left)}`}</Text>
+        ? <Text color={left < 60_000 ? AMBER : HEADER}>{`         ◷ cache calda ancora ${countdown(left)}`}</Text>
         : (
             <Text color={RED} wrap="truncate-end">
-              {`      ⚠ cache scaduta${used === undefined ? '' : `: il prossimo turno riscrive ~${tokens(used)}`}`}
+              {`         ⚠ cache scaduta${used === undefined ? '' : `: il prossimo turno riscrive ~${tokens(used)}`}`}
             </Text>
           )
     }
-    const last = spent.last === null ? null : (
-      <Text wrap="truncate-end" color={SECONDARY}>
-        {`turno ↓${tokens(spent.last.input + spent.last.cacheRead + spent.last.cacheWrite)} ↑${tokens(spent.last.output)}`}
-        {hitRate(spent.last) === undefined ? '' : ` · cache ${hitRate(spent.last)}%`}
-        {spent.last.costUsd === undefined ? '' : <Text bold={lit} color={lit ? AMBER : SECONDARY}>{` · +${spent.last.costUsd.toFixed(2)} $`}</Text>}
+    const totalRow = usage.cost === undefined ? null : (
+      <Text wrap="truncate-end">
+        {'totale   '}
+        <Text bold color={lit ? AMBER : undefined}>{`${usage.cost.usd.toFixed(2)} $`}</Text>
       </Text>
     )
+    const last = spent.last === null ? null : (
+      <Text wrap="truncate-end">
+        {'turno    '}
+        {spent.last.costUsd === undefined ? '' : <Text bold={lit} color={lit ? AMBER : undefined}>{`+${spent.last.costUsd.toFixed(2)} $`}</Text>}
+        <Text color={SECONDARY}>
+          {`  ↓${tokens(spent.last.input + spent.last.cacheRead + spent.last.cacheWrite)} ↑${tokens(spent.last.output)}`}
+          {hitRate(spent.last) === undefined ? '' : ` · cache ${hitRate(spent.last)}%`}
+        </Text>
+      </Text>
+    )
+    const costSection = [totalRow, last, cacheBar, cacheClock].filter(r => r !== null)
 
     // Where the tokens go: tool outputs, the largest one, files read again, MCP schemas.
-    const byTool = Object.entries(out.byTool).filter(([, t]) => t.tokens > 0).sort((a, b) => b[1].tokens - a[1].tokens)
-    const toolRow = byTool.length === 0 ? null : (
-      <Text wrap="truncate-end">
-        <Text color={SECONDARY}>{'output '}</Text>
-        {byTool.slice(0, TOP_TOOLS).map(([name, t], i) => `${i === 0 ? '' : ' · '}${name} ${tokens(t.tokens)}×${t.calls}`).join('')}
+    const indent = ' '.repeat(9)
+    /** The label on a group's first row, the indent on the rest. */
+    const groupLabel = (i: number, text: string) => (i === 0 ? text.padEnd(9) : indent)
+    /** A row: its label, the name in the default colour, the numbers in SECONDARY. */
+    const groupRow = (key: string, label: string, labelColor: string, name: string, numbers: string) => (
+      <Text key={key} wrap="truncate-end">
+        <Text color={labelColor}>{label}</Text>
+        {name}
+        <Text color={SECONDARY}>{numbers}</Text>
       </Text>
     )
-    const biggest = out.biggest === null || out.biggest.tokens < 1000 ? null : (
-      <Text wrap="truncate-end">
-        <Text color={out.biggest.tokens >= 10_000 ? AMBER : SECONDARY}>{'↯ max   '}</Text>
-        {`${out.biggest.tool}${out.biggest.label === '' ? '' : ` ${clip(out.biggest.label, 28)}`} ${tokens(out.biggest.tokens)}`}
-      </Text>
-    )
-    const rereads = Object.entries(out.reads).filter(([, n]) => n >= REREAD_AT).sort((a, b) => b[1] - a[1])
-    const rereadRow = rereads.length === 0 ? null : (
-      <Text wrap="truncate-end">
-        <Text color={AMBER}>{'⟳ riletti '}</Text>
-        {rereads.slice(0, TOP_REREADS).map(([p, n]) => `${baseName(p)} ×${n}`).join(' · ')}
-      </Text>
-    )
+    const byTool = Object.entries(out.byTool).filter(([, t]) => t.tokens > 0).sort((a, b) => b[1].tokens - a[1].tokens).slice(0, TOP_TOOLS)
+    const toolNameWidth = Math.max(0, ...byTool.map(([name]) => name.length))
+    const toolTokensWidth = Math.max(0, ...byTool.map(([, t]) => tokens(t.tokens).length))
+    const toolCallsWidth = Math.max(0, ...byTool.map(([, t]) => `×${t.calls}`.length))
+    const toolRows = byTool.map(([name, t], i) => groupRow(
+      `tool-${name}`, groupLabel(i, 'output'), SECONDARY,
+      name.padEnd(toolNameWidth), `  ${tokens(t.tokens).padStart(toolTokensWidth)}  ${`×${t.calls}`.padStart(toolCallsWidth)}`,
+    ))
+    const biggest = out.biggest === null || out.biggest.tokens < 1000 ? [] : [groupRow(
+      'biggest', groupLabel(0, 'max'), out.biggest.tokens >= 10_000 ? AMBER : SECONDARY,
+      `${out.biggest.tool}${out.biggest.label === '' ? '' : ` ${clip(out.biggest.label, 28)}`}`, `  ${tokens(out.biggest.tokens)}`,
+    )]
+    const rereads = Object.entries(out.reads).filter(([, n]) => n >= REREAD_AT).sort((a, b) => b[1] - a[1]).slice(0, TOP_REREADS)
+    const rereadNameWidth = Math.max(0, ...rereads.map(([p]) => baseName(p).length))
+    const rereadCountWidth = Math.max(0, ...rereads.map(([, n]) => `×${n}`.length))
+    const rereadRows = rereads.map(([p, n], i) => groupRow(
+      `reread-${p}`, groupLabel(i, 'riletti'), AMBER,
+      baseName(p).padEnd(rereadNameWidth), `  ${`×${n}`.padStart(rereadCountWidth)}`,
+    ))
     const mcp = shape === null ? [] : shape.mcp
-    const mcpRow = mcp.length === 0 ? null : (
-      <Text wrap="truncate-end">
-        <Text color={SECONDARY}>{'MCP    '}</Text>
-        {mcp.slice(0, 2).map(s => `${s.server} ${tokens(s.tokens)}`).join(' · ')}
-        <Text color={SECONDARY}>{mcp.length > 2 ? ` · +${mcp.length - 2}` : ''}</Text>
-      </Text>
+    const mcpShown = mcp.slice(0, 2)
+    const mcpNameWidth = Math.max(0, ...mcpShown.map(s => s.server.length))
+    const mcpTokensWidth = Math.max(0, ...mcpShown.map(s => tokens(s.tokens).length))
+    const mcpRows = [
+      ...mcpShown.map((s, i) => groupRow(
+        `mcp-${s.server}`, groupLabel(i, 'MCP'), SECONDARY,
+        s.server.padEnd(mcpNameWidth), `  ${tokens(s.tokens).padStart(mcpTokensWidth)}`,
+      )),
+      ...(mcp.length > 2 ? [groupRow('mcp-more', indent, SECONDARY, '', `+${mcp.length - 2} altri`)] : []),
+    ]
+    const spending = [...toolRows, ...biggest, ...rereadRows, ...mcpRows]
+
+    // The sub-tabs: one of the two sections at a time, the tab row hidden when both are empty.
+    const hasTabs = costSection.length > 0 || spending.length > 0
+    const tabRows = tab === 'costo' ? costSection : spending
+    const tabButton = (value: 'costo' | 'token', label: string) => (
+      <Button key={`tab-${value}`} plain onPress={() => update($, subTab, () => value)}>
+        <Text bold={tab === value} color={tab === value ? HEADER : SECONDARY}>{`[${label}]`}</Text>
+      </Button>
     )
-    const spending = [toolRow, biggest, rereadRow, mcpRow].filter(r => r !== null)
 
     // Subagents: as many finished ones as the pane has rows left for.
-    const fixedRows = 2 + (doneRow ? 1 : 0) + 2 + limits.length + 2 + 2 + (legend ? 1 : 0) + (cacheBar ? 1 : 0) + (cacheClock ? 1 : 0)
-      + (last ? 1 : 0) + (spending.length > 0 ? 2 + spending.length : 0) + 2 + active.length
+    const fixedRows = 2 + (doneRow ? 1 : 0) + 2 + limits.length + 2 + 2 + parts.length
+      + (hasTabs ? 2 + Math.max(1, tabRows.length) : 0) + 2 + active.length
     const finishedShown = clamp(room - fixedRows - 1, 0, FINISHED_MAX)
     const modelWidth = Math.min(
       MODEL_WIDTH_MAX,
@@ -938,12 +976,15 @@ export const register: Register = (on, options) => {
         </Text>
         {contextBar}
         {legend}
-        {cacheBar}
-        {cacheClock}
-        {last}
 
-        {spending.length > 0 && heading('Dove vanno i token')}
-        {spending}
+        {hasTabs && (
+          <Box marginTop={1} flexDirection="row" columnGap={2}>
+            {tabButton('costo', 'Costo e cache')}
+            {tabButton('token', 'Dove vanno i token')}
+          </Box>
+        )}
+        {hasTabs && tabRows.length === 0 && <Text color={SECONDARY}>Niente da mostrare.</Text>}
+        {hasTabs && tabRows}
 
         {heading('Subagent', ` ${active.length} attivi · ${rows.length} totali${agentTokens > 0 ? ` · ${tokens(agentTokens)}` : ''}`)}
         {rows.length === 0 && <Text color={SECONDARY}>Nessun subagent in questa sessione.</Text>}
