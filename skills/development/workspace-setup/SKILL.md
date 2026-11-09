@@ -1,6 +1,6 @@
 ---
 name: workspace-setup
-description: Set up a development workspace for working with a coding agent - code repo, docs wiki repo, reference folder, run/debug config and agent instructions - on Azure DevOps, GitHub or local only, for any stack. Use when the user wants to start a new project, set up or initialize a workspace or repo, onboard an existing repo for agent work, or says "prepare the repo", "set up the project", "init the workspace".
+description: Set up a development workspace for working with a coding agent - code repo, a wiki the agent maintains as its second brain (Karpathy's LLM Wiki pattern), raw-sources folder, run/debug config and agent instructions - on Azure DevOps, GitHub or local only, for any stack. Use when the user wants to start a new project, set up or initialize a workspace or repo, onboard an existing repo for agent work, or says "prepare the repo", "set up the project", "init the workspace".
 ---
 
 # Workspace setup
@@ -12,7 +12,7 @@ Speak the user's language in conversation. Write files in English unless the use
 Rules that hold for the whole skill:
 
 - **Adapt, don't copy.** The examples below are shapes; use the project's real names, stack and commands.
-- **Don't ask what this skill already decides.** The workspace layout, the branch + PR flow, the "Proposed change" convention for docs, port + mock for integrations, and the 3-line preamble are applied, not debated.
+- **Don't ask what this skill already decides.** The workspace layout, the branch + PR flow, the LLM Wiki pattern for docs (step 4), port + mock for integrations, and the 3-line preamble are applied, not debated.
 - **Don't invent.** No made-up build commands, package names, registries or URLs. If the user doesn't know, it's recorded as an open point where the agent will read it (step 6), not guessed.
 - **Confirm external or hard-to-undo actions one by one:** creating remote repos, branch policies, push, merge, deletes.
 - **Never print tokens or credentials, never write them to a file.**
@@ -55,14 +55,14 @@ Then show the **3-line preamble** and wait for confirmation:
 ```
 <workspace-root>/      ← opened in the IDE, NOT a git repo
 ├── app/               ← code repo
-├── wiki/              ← the agent's second brain (separate git)
-├── reference/         ← UI mocks, external docs, exports
+├── wiki/              ← the agent's second brain, maintained by the agent (separate git)
+├── reference/         ← raw sources: specs, client docs, notes, API docs, mocks (read-only for the agent)
 │   └── mock/current/  ← current version; older ones in mock/<YYYY-MM-DD>/
 ├── .vscode/           ← tasks.json + launch.json with ${workspaceFolder}/app/... paths
 └── CLAUDE.md          ← local-only: map of the workspace and provider (step 7)
 ```
 
-`reference/` is a plain folder by default (it often holds heavy binaries). If the team wants to share it, propose a repo of its own, never inside `app/` or `wiki/`. When a new version of the mocks arrives, move `mock/current/` to `mock/<YYYY-MM-DD>/` first, then replace `current/`.
+`reference/` is a plain folder by default (it often holds heavy binaries). The wiki cites it, so if more than one person works on the project, propose a repo of its own (never inside `app/` or `wiki/`) so the citations resolve for everyone. When a new version of the mocks arrives, move `mock/current/` to `mock/<YYYY-MM-DD>/` first, then replace `current/`.
 
 ## 3. Code repo (`app/`) by provider
 
@@ -93,70 +93,85 @@ Then show the **3-line preamble** and wait for confirmation:
 
 In every case: a `.gitignore` for build output, dependencies, local device/IDE files and local-only documents.
 
-## 4. The wiki: the agent's second brain
+## 4. The wiki: the agent's second brain (LLM Wiki pattern)
 
-The wiki is the agent's long-term memory for this project. Its job is to save tokens and give context: an agent that reads a 40-line index and two short pages knows where things are and why, instead of grepping the codebase or re-deriving decisions every session. It holds what the code can't say (domain language, business rules, decisions and their reasons, integrations) and *where* things live in the code. It is not a copy of the code.
+The wiki follows Andrej Karpathy's **LLM Wiki** pattern: instead of re-deriving context from raw documents and from the codebase in every session, the agent builds and maintains a persistent, interlinked set of markdown pages that sits between it and the sources. Knowledge compounds: each source read, each task done and each good answer is filed once and reused for free. An agent that reads a short index and two pages knows what things mean, why they are the way they are and where they live in the code, instead of grepping or re-reading a spec.
 
-Two consequences shape everything below: it must be **cheap to read selectively** (an index first, small pages, pointers instead of copies), and it must **stay true** (a stale pointer costs more tokens than no wiki, because the agent trusts it and then has to search anyway).
+Two things make it pay off: it is **cheap to read selectively** (index first, small pages, pointers to code instead of copies), and it **stays true** (a stale page costs more tokens than no page, because the agent trusts it and then has to search anyway). The operations below exist for those two.
 
-### Skeleton
+### Three layers
+
+- **Raw sources – `reference/`.** Specs, client documents, meeting notes, API docs, mocks, exports. Curated by the human, **immutable**: the agent reads them and never edits them. The code in `app/` is also a source the agent reads; the wiki points into it.
+- **The wiki – `wiki/`.** Written and maintained **by the agent**: summaries, entity and concept pages, decisions, integrations, cross-links. The human reads it, reviews it through PRs, and rarely writes in it. To change what the wiki says, the human changes or adds a source (or states a decision) and the agent updates the pages.
+- **The schema – `wiki/CLAUDE.md`.** The wiki's structure, page format and workflows below. The user and the agent evolve it together as they learn what works.
+
+### Structure
 
 ```
 wiki/
-├── index.md         ← the only page an agent always reads: one line per page
-├── conventions.md   ← how to read and write this wiki (read only when writing)
-├── glossary.md      ← domain terms: term · meaning · name in code
-├── decisions/       ← one short page per decision: context · decision · why · consequences
-├── integrations/    ← one page per external system (step 6)
-└── domain/          ← one page per concept or flow (filled later, by shape-it or by hand)
+├── CLAUDE.md        ← schema: structure, page format, operations (read before writing)
+├── index.md         ← catalog of every page: the only page always read
+├── log.md           ← append-only history of ingests, tasks, queries, lint passes
+├── overview.md      ← the project on one page: purpose, users, main flows, architecture at a glance
+├── sources/         ← one summary page per raw source in ../reference/
+├── entities/        ← domain entities (Order, Customer…): meaning, rules, name in code
+├── concepts/        ← business rules, flows, cross-cutting concepts
+├── decisions/       ← one page per decision: context · decision · why · consequences
+└── integrations/    ← one page per external system (step 6)
 ```
 
-`index.md` lists every page as `- [Title](path) – one-line summary`, grouped by folder, and nothing else. Keep it under ~150 lines; past that, give each folder its own index and link those. On Azure DevOps put `index` first in the root `.order`; on GitHub add a one-line `README.md` pointing to it.
+**`index.md`** – every page, grouped by category, one line each: `- [Title](path) – one-line summary · <updated>`. The agent reads it first for every task and every question, and updates it on every write. It works without search tooling up to a few hundred pages; past that, split it per category or add a local search tool over the markdown.
+
+**`log.md`** – one entry per operation, newest last, always with the same prefix so it can be grepped:
+
+```
+## [2026-11-09] ingest | Client spec v3 (reference/specs/spec-v3.pdf)
+Pages: sources/spec-v3, entities/order, concepts/discounts (+ index)
+## [2026-11-10] task | S2 checkout with discount codes (PR #14)
+## [2026-11-12] lint | 2 stale pointers fixed, 1 contradiction opened as Open block
+```
+
+`grep "^## \[" log.md | tail -5` tells the agent what happened recently without reading anything else.
 
 ### Page format
 
 ```
 ---
 summary: one line, the same as in index.md
-code: [src/billing/invoice.ts, InvoiceService.issue]   # where this lives; paths or symbols
+sources: [sources/spec-v3.md, decisions/0004-discount-stacking.md]
+code: [src/billing/discounts.ts, DiscountPolicy.apply]
 updated: <date>
 ---
-# <Concept>
-Rules as short, explicit statements. Examples only when a rule is ambiguous without one.
+# <Entity or concept>
+Rules as short, explicit statements, each traceable to a source.
 Links to related pages instead of repeating them.
 ```
 
-- One concept per page, under ~120 lines. Longer means two concepts: split.
-- Point to code, never paste it. The code is the truth for *how*; the page says *what*, *why* and *where*.
-- Each fact lives in one page. Everywhere else links to it.
-- Undecided points are **Open** blocks (step 6), never guesses.
+- One entity or concept per page, under ~120 lines. Longer means two pages.
+- **Point to code, never paste it.** The code is the truth for *how*; the page says *what*, *why* and *where*.
+- **Every rule traces to a source** (`sources:`). No source, no rule: it's an **Open** block (step 6).
+- Each fact lives in one page; everywhere else links to it. Plain relative markdown links, so the pages render on Azure DevOps, GitHub and in Obsidian alike (Obsidian's graph view is a handy optional viewer).
 
-### Read and write protocol (written into `conventions.md` and `app/CLAUDE.md`)
+### Operations (written into `wiki/CLAUDE.md`)
 
-- **Read before searching.** Start every task from `index.md`, open only the pages the task touches, follow their `code:` pointers. Search the codebase only for what the wiki doesn't answer.
-- **Stop at Open blocks.** Ask instead of assuming.
-- **Write back at the end of a task.** If the task taught something durable that the wiki lacked or had wrong (where a flow lives, a rule, a term, a decision taken), update the page, its `updated:` date and `index.md` in the same session, and list the wiki changes in the task report. If a `code:` pointer turned out wrong, fix it on the spot.
-- **What changes directly, what is proposed.** Navigation facts (code pointers, how a flow is wired, new glossary entries, new pages) are updated directly. A change to an agreed business rule or decision is added as a **Proposed change** block below the agreed text instead of rewriting it:
+- **Ingest** – a new or changed source lands in `reference/`. The agent reads it, discusses the key points with the user, writes `sources/<name>.md`, updates every entity, concept, decision and integration page it touches (often several), the index and the log. One source at a time, with the user in the loop. If the source contradicts a page, the agent doesn't pick a winner: it opens an **Open** block and asks.
+- **Task** – the coding version of ingest. At the end of a task, the work itself is the source: update the pages whose rules or `code:` pointers changed, add a `decisions/` page for any decision taken, log `task | <slice or PR>`. Pages the task only read and found correct need no update.
+- **Query** – answer questions from the wiki first: index → pages → `code:` pointers, searching the codebase only for what the wiki doesn't answer, citing the pages used. When an answer is worth keeping (how a flow works end to end, a comparison, an analysis), file it as a page so the next session gets it for free.
+- **Lint** – on request or every few weeks: contradictions between pages, claims superseded by a newer source, orphan pages, concepts mentioned without a page, missing cross-links, `code:` pointers that no longer resolve (path gone, symbol renamed), **Open** blocks a newer source now answers. Fix what's mechanical, list the rest, log `lint`.
 
-  ```
-  > **Proposed change** (<author>, <date>)
-  > What: … · Why: … · Impact: …
-  ```
-
-  and merged into the text only once approved.
-- Wiki changes go through a branch + PR like code; commit and push follow the same rules as the code.
+Wiki changes go through a branch + PR like code, so the human reviews what the agent wrote; commit and push follow the same rules as the code.
 
 ### Hosting by provider
 
 The wiki needs a repo with branches and PRs:
 
-- **Azure DevOps:** a dedicated `<app>-wiki` repo published as a **code wiki** (`az devops wiki create --type codewiki --name <app>-wiki --repository <app>-wiki --mapped-path / --version main`, confirm first). Advise against the *project wiki* (`<Project>.wiki`): edits go straight to the branch, no PRs or policies. Remember: page order is set by a `.order` file per folder; dashes in file names become spaces in titles; diagrams use `::: mermaid`.
-- **GitHub:** a dedicated `<owner>/<app>-wiki` repo (markdown rendered by GitHub, PRs and reviews). Advise against GitHub's built-in wiki (`<repo>.wiki.git`): no PRs or reviews, flat structure. Diagrams in ```` ```mermaid ```` blocks.
+- **Azure DevOps:** a dedicated `<app>-wiki` repo published as a **code wiki** (`az devops wiki create --type codewiki --name <app>-wiki --repository <app>-wiki --mapped-path / --version main`, confirm first). Advise against the *project wiki* (`<Project>.wiki`): edits go straight to the branch, no PRs or policies. Put `index`, `overview`, `log` first in the root `.order`; dashes in file names become spaces in titles; diagrams use `::: mermaid`.
+- **GitHub:** a dedicated `<owner>/<app>-wiki` repo (markdown rendered by GitHub, PRs and reviews), with a one-line `README.md` pointing to `index.md`. Advise against GitHub's built-in wiki (`<repo>.wiki.git`): no PRs or reviews, flat structure. Diagrams in ```` ```mermaid ```` blocks.
 - **Local only:** `git init -b main` in `wiki/`.
 
-Agents started inside `app/` must be able to read the wiki: add `"additionalDirectories": ["../wiki"]` under `permissions` in `app/.claude/settings.json` (versioned, so every clone with the same layout gets it). If reads outside `app/` still get blocked, start sessions from the workspace root instead, where both `app/` and `wiki/` are in scope.
+Agents started inside `app/` must be able to read the wiki: add `"additionalDirectories": ["../wiki", "../reference"]` under `permissions` in `app/.claude/settings.json` (versioned, so every clone with the same layout gets it). If reads outside `app/` still get blocked, start sessions from the workspace root instead, where all three folders are in scope.
 
-Create the skeleton only: `index.md`, `conventions.md` (page format + protocol above), an empty `glossary.md` with its header row, the empty folders, and one page per integration from step 6. Writing the domain pages is not this skill's job.
+Create the skeleton only: `CLAUDE.md` (layers, structure, page format, operations above, adapted to the project), `index.md` with its categories, `log.md` with a first `setup` entry, a stub `overview.md` with what step 1 established, the empty folders, and one page per integration from step 6. If `reference/` already holds sources, propose ingesting them one at a time after the setup; don't bulk-ingest during it.
 
 ## 5. Run & debug
 
@@ -170,7 +185,7 @@ Create the skeleton only: `index.md`, `conventions.md` (page format + protocol a
 ## 6. Internal packages, integrations and open points
 
 - **Internal packages/templates:** if one exists for the chosen stack, configure it instead of rewriting the wiring from scratch (registry/feed in the package manager's config file, no credentials in the file: use the registry's own auth mechanism). If name, feed or version are missing, don't proceed on that point: record it as an open point.
-- **External integrations:** for each one, a port (interface) + a mock implementation registered by default, so the app runs and tests without the real system. Each integration gets a wiki page (what the system is, the operations used, the port that wraps them); what isn't known yet about it is an open point on that page.
+- **External integrations:** for each one, a port (interface) + a mock implementation registered by default, so the app runs and tests without the real system. Each integration gets a page in `wiki/integrations/` (what the system is, the operations used, the port and mock that wrap them, its sources); what isn't known yet about it is an open point on that page.
 
 ### Open points
 
@@ -182,10 +197,10 @@ There is no separate questions file. An open point lives where the agent will re
   > **Open** (<date>): <question> · Blocks: <what can't be decided without it> · Ask: <who>
   ```
 
-  When the answer is agreed, replace the block with the rule itself (through the Proposed change flow if the page is already agreed).
+  When a source or a decision answers it, the next ingest or task replaces the block with the rule and cites where the answer came from. Lint lists the blocks still open.
 - **Development environment** (internal feed, network IPs, a branch policy that couldn't be applied) → in `app/CLAUDE.md`, in a short "To verify" list.
 
-`conventions.md` explains the convention, so an agent that meets an **Open** block stops and asks instead of assuming.
+`wiki/CLAUDE.md` explains the convention, so an agent that meets an **Open** block stops and asks instead of assuming.
 
 ## 7. Instructions for the agent
 
@@ -197,7 +212,7 @@ There is no separate questions file. An open point lives where the agent will re
 - Backlog: `docs/backlog/<feature>/` (scope.md + backlog.md, written by `shape-it`).
 - Security: never print tokens or put them in files; confirm before push, merge, sending, deleting.
 - The 3-line preamble ritual (goal, source of truth, definition of done) before non-trivial work, and the rule "if sources disagree, surface it and ask".
-- Wiki (`../wiki/`): the read and write protocol from step 4, in four lines: start from `index.md`, open only the pages the task touches and follow their `code:` pointers; search the code only for what the wiki doesn't answer; stop at **Open** blocks; at the end of the task, write back what you learned (agreed rules only as Proposed change).
+- Wiki (`../wiki/`), in four lines: start every task from `../wiki/index.md`, open only the pages it touches and follow their `code:` pointers, search the code only for what the wiki doesn't answer; stop at **Open** blocks; read `../wiki/CLAUDE.md` before writing to the wiki; end every task with the wiki's **task** operation (update touched pages, decisions, index, log). Never edit `../reference/`.
 - To verify: the environment's open points from step 6, if any.
 
 **`<workspace-root>/CLAUDE.md` (local-only)** – short, read in every session opened on the root:
@@ -208,8 +223,8 @@ There is no separate questions file. An open point lives where the agent will re
 - Stack: <decided languages/frameworks>
 - app/  → <remote url or "local">
 - wiki/ → <remote url or "local">  · type: <code wiki | markdown repo | local>
-- reference/ → current mocks in reference/mock/current/
-- wiki/ is the agent's second brain: start from wiki/index.md before searching the code
+- reference/ → raw sources (read-only for the agent); current mocks in reference/mock/current/
+- wiki/ → the agent's second brain (LLM Wiki pattern): start from wiki/index.md, schema in wiki/CLAUDE.md
 - Project instructions: app/CLAUDE.md
 ```
 
@@ -221,12 +236,12 @@ There is no separate questions file. An open point lives where the agent will re
    - Workspace root is not a git repo; `app/`, `wiki/`, `reference/` exist
    - `app/` repo with remote (or local), `.gitignore`
    - `main` protected (policy, ruleset, hook, or written convention)
-   - `wiki/` repo with branches + PRs; `index.md`, `conventions.md` (format, protocol, Proposed change, Open), `glossary.md`, `decisions/`, `integrations/`, `domain/`
-   - `app/.claude/settings.json` lets agents in `app/` read `../wiki`
+   - `wiki/` repo with branches + PRs; `CLAUDE.md` (schema), `index.md`, `log.md` with the setup entry, `overview.md`, `sources/`, `entities/`, `concepts/`, `decisions/`, `integrations/`
+   - `app/.claude/settings.json` lets agents in `app/` read `../wiki` and `../reference`
    - `.vscode/` at the root with real tasks and launch configs
    - Internal packages configured, or recorded as open points
    - Integrations behind a port + mock, one wiki page each
    - `app/CLAUDE.md` and root `CLAUDE.md` written, with real commands
 2. List the open points and where each one was recorded (wiki page or `app/CLAUDE.md`).
 3. Ask whether to commit (and push, if there's a remote) the scaffolding of `app/` and `wiki/`: one commit per repo, descriptive message. Never without confirmation.
-4. Propose the next step: `shape-it` to turn the first feature or MVP into a backlog.
+4. Propose the next step: ingest the sources already in `reference/` one at a time, then `shape-it` to turn the first feature or MVP into a backlog.
