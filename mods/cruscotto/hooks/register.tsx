@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import type { AgentInfo, AgentStatus, EngineInterface, Register, SessionRateLimit, Timer, TurnUsage } from 'claude-code'
+import type { AgentInfo, AgentStatus, EngineInterface, Register, RenderChildren, SessionRateLimit, Timer, TurnUsage } from 'claude-code'
 
 import type { ContextShape, CruscottoAgent, DoneInfo, LiveOutput, TokenCounts, TokenLedger, ToolLedger } from '../types'
 
@@ -17,6 +17,8 @@ const GREEN = '#81C784'
 /** The running light, and the dark it fades into. */
 const SCAN = '#FF5252'
 const SCAN_DARK = '#3A2A2E'
+/** The card a cut row shows on hover. */
+const TIP_BG = '#263238'
 /** The context bar's segments, largest category first. */
 const SEGMENTS = [HEADER, '#B39DDB', AMBER, '#90CAF9', '#A5D6A7', SECONDARY]
 
@@ -774,11 +776,27 @@ export const register: Register = (on, options) => {
       ]
     }
 
+    /**
+     * A row that may be cut (its `…`) or summed up (`+3`): `when` it is, the
+     * pointer over it reveals a card with the whole of it. The cards are drawn
+     * last, over everything, placed under their row (or above it, near the
+     * bottom) once the rows are laid out. A surface with no pointer shows none.
+     */
+    const cards: { scope: string; full: string; node: RenderChildren }[] = []
+    const tip = <T extends RenderChildren>(id: string, row: T, full: string, when: boolean): T | RenderChildren => {
+      if (row === null || !when) return row
+      const scope = `tip:${id}`.slice(0, 64)
+      const node = <Box flexDirection="column" hover={{ scope }}>{row}</Box>
+      cards.push({ scope, full, node })
+      return node
+    }
+
     // Header: what runs, where, and what it has cost.
     const sign = mainRunning ? SPINNER[tick % SPINNER.length] : '◆'
     const cost = usage.cost === undefined ? '' : `${usage.cost.usd.toFixed(2)} $`
     const lit = now < flashUntil
-    const header = (
+    const place = cachedBranch.value === null ? folderName(cwd) : `⎇ ${cachedBranch.value}`
+    const header = tip('header', (
       <Box flexDirection="row" justifyContent="space-between" width={width}>
         <Text wrap="truncate-end">
           <Text color={HEADER}>{sign} </Text>
@@ -786,7 +804,7 @@ export const register: Register = (on, options) => {
         </Text>
         <Text bold={lit} color={lit ? AMBER : SECONDARY}>{cost}</Text>
       </Box>
-    )
+    ), cachedBranch.value === null ? cwd : `⎇ ${cachedBranch.value}\n${cwd}`, place.length + cost.length + 3 > width)
 
     // The strip: the running light while the work goes on, solid green once it is done.
     const stripState: StripState = isScanning()
@@ -818,12 +836,13 @@ export const register: Register = (on, options) => {
     if (ended !== null && !mainRunning) {
       const look = DONE_LOOK[ended.reason]
       const isFresh = now - ended.at < BANNER_MS
-      doneRow = (
+      const line = `${look.icon} ${look.label} alle ${clockTime(new Date(ended.at).toISOString())} · ${doneSummary(ended)}`
+      doneRow = tip('done', (
         <Text wrap="truncate-end" bold={isFresh} color={isFresh ? look.color : SECONDARY}>
           <Text color={look.color}>{look.icon}</Text>
-          {` ${look.label} alle ${clockTime(new Date(ended.at).toISOString())} · ${doneSummary(ended)}`}
+          {line.slice(look.icon.length)}
         </Text>
-      )
+      ), line, line.length > width)
     }
 
     // Limits: 5 hours, then the week, then the rest, their resets in one column.
@@ -918,27 +937,24 @@ export const register: Register = (on, options) => {
 
     // Where the tokens go, the main loop's alone: what tools gave it, what it wrote,
     // what weighs on every request, files read again, MCP schemas, the turns' trace.
-    const top = (entries: Record<string, { tokens: number; calls: number }>) =>
+    const ranked = (entries: Record<string, { tokens: number; calls: number }>) =>
       Object.entries(entries)
         .filter(([, t]) => t.tokens > 0)
         .sort((a, b) => b[1].tokens - a[1].tokens)
-        .slice(0, TOP_TOOLS)
         .map(([name, t]) => `${name} ${tokens(t.tokens)}×${t.calls}`)
-        .join(' · ')
-    const outputs = top(out.byTool)
-    const toolRow = outputs === '' ? null : (
-      <Text wrap="truncate-end">
-        <Text color={SECONDARY}>{rowLabel('output')}</Text>
-        {outputs}
-      </Text>
-    )
-    const wrote = top(out.written)
-    const writtenRow = wrote === '' ? null : (
-      <Text wrap="truncate-end">
-        <Text color={SECONDARY}>{rowLabel('scritto')}</Text>
-        {wrote}
-      </Text>
-    )
+    /** A ranked row: its top entries, every one of them on hover when more were left out or it is cut. */
+    const rankedRow = (id: string, label: string, entries: string[]) => {
+      if (entries.length === 0) return null
+      const shown = entries.slice(0, TOP_TOOLS).join(' · ')
+      return tip(id, (
+        <Text wrap="truncate-end">
+          <Text color={SECONDARY}>{rowLabel(label)}</Text>
+          {shown}
+        </Text>
+      ), entries.join('\n'), entries.length > TOP_TOOLS || ROW_LABEL + shown.length > width)
+    }
+    const toolRow = rankedRow('output', 'output', ranked(out.byTool))
+    const writtenRow = rankedRow('written', 'scritto', ranked(out.written))
     // Each output still in the context is sent again with every request since it arrived.
     const weighed = out.live
       .map(o => ({ ...o, resent: Math.max(0, out.requests - o.at) }))
@@ -946,28 +962,37 @@ export const register: Register = (on, options) => {
       .filter(o => o.weight > 0)
     const heaviest = weighed.reduce<(typeof weighed)[number] | undefined>((max, o) => (max === undefined || o.weight > max.weight ? o : max), undefined)
     const totalWeight = weighed.reduce((n, o) => n + o.weight, 0)
-    const weightRow = heaviest === undefined || heaviest.weight < 10_000 ? null : (
-      <Text wrap="truncate-end">
-        <Text color={heaviest.weight >= 1_000_000 ? AMBER : SECONDARY}>{rowLabel('↯ peso')}</Text>
-        {`${heaviest.tool}${heaviest.label === '' ? '' : ` ${clip(heaviest.label, 22)}`} ${tokens(heaviest.tokens)} ×${heaviest.resent} ≈${tokens(heaviest.weight)}`}
-        <Text color={SECONDARY}>{weighed.length > 1 ? ` · tutti ≈${tokens(totalWeight)}` : ''}</Text>
-      </Text>
-    )
+    let weightRow = null
+    if (heaviest !== undefined && heaviest.weight >= 10_000) {
+      const shown = `${heaviest.tool}${heaviest.label === '' ? '' : ` ${clip(heaviest.label, 22)}`} ${tokens(heaviest.tokens)} ×${heaviest.resent} ≈${tokens(heaviest.weight)}`
+      const all = weighed.length > 1 ? ` · tutti ≈${tokens(totalWeight)}` : ''
+      const byWeight = [...weighed].sort((a, b) => b.weight - a.weight).slice(0, 8)
+      weightRow = tip('weight', (
+        <Text wrap="truncate-end">
+          <Text color={heaviest.weight >= 1_000_000 ? AMBER : SECONDARY}>{rowLabel('↯ peso')}</Text>
+          {shown}
+          <Text color={SECONDARY}>{all}</Text>
+        </Text>
+      ), byWeight.map(o => `${o.tool}${o.label === '' ? '' : ` ${o.label}`}: ${tokens(o.tokens)} rimandati ${o.resent} volte ≈${tokens(o.weight)}`).join('\n'),
+      heaviest.label.length > 22 || weighed.length > 1 || ROW_LABEL + shown.length + all.length > width)
+    }
     const rereads = Object.entries(out.reads).filter(([, n]) => n >= REREAD_AT).sort((a, b) => b[1] - a[1])
-    const rereadRow = rereads.length === 0 ? null : (
+    const rereadShown = rereads.slice(0, TOP_REREADS).map(([p, n]) => `${baseName(p)} ×${n}`).join(' · ')
+    const rereadRow = rereads.length === 0 ? null : tip('rereads', (
       <Text wrap="truncate-end">
         <Text color={AMBER}>{rowLabel('⟳ riletti')}</Text>
-        {rereads.slice(0, TOP_REREADS).map(([p, n]) => `${baseName(p)} ×${n}`).join(' · ')}
+        {rereadShown}
       </Text>
-    )
+    ), rereads.map(([p, n]) => `${p} ×${n}`).join('\n'), rereads.length > TOP_REREADS || ROW_LABEL + rereadShown.length > width)
     const mcp = shape === null ? [] : shape.mcp
-    const mcpRow = mcp.length === 0 ? null : (
+    const mcpShown = mcp.slice(0, 2).map(s => `${s.server} ${tokens(s.tokens)}`).join(' · ')
+    const mcpRow = mcp.length === 0 ? null : tip('mcp', (
       <Text wrap="truncate-end">
         <Text color={SECONDARY}>{rowLabel('MCP')}</Text>
-        {mcp.slice(0, 2).map(s => `${s.server} ${tokens(s.tokens)}`).join(' · ')}
+        {mcpShown}
         <Text color={SECONDARY}>{mcp.length > 2 ? ` · +${mcp.length - 2}` : ''}</Text>
       </Text>
-    )
+    ), mcp.map(s => `${s.server} ${tokens(s.tokens)}`).join('\n'), mcp.length > 2 || ROW_LABEL + mcpShown.length + 6 > width)
     // The trace: the context at the end of each turn, one cell a turn, a compaction in violet.
     const history = spent.history.slice(-Math.max(1, width - ROW_LABEL - 8))
     let traceRow = null
@@ -1012,44 +1037,81 @@ export const register: Register = (on, options) => {
       const modelText = a.model === undefined ? '–' : shortModel(a.model)
       const agentSpent = a.tokens === undefined ? '–' : tokens(a.tokens)
 
-      return (
+      const line = ` ${modelText.slice(0, modelWidth).padEnd(modelWidth)} ${effortText.padEnd(4)} ${time.padStart(5)} ${agentSpent.padStart(4)}  ${a.description}`
+      return tip(`agent:${a.id}`, (
         <Text color={running ? undefined : SECONDARY} wrap="truncate-end">
           <Text color={a.status === 'running' && !pulse ? GLOW : color}>{shownIcon}</Text>
-          {` ${modelText.slice(0, modelWidth).padEnd(modelWidth)} ${effortText.padEnd(4)} ${time.padStart(5)} ${agentSpent.padStart(4)}  ${a.description}`}
+          {line}
         </Text>
-      )
+      ), `${a.description}\n${a.type} · ${modelText} · effort ${effortText} · ${time} · ${agentSpent} token`, 1 + line.length > width)
     })
     const hidden = finished.length - Math.min(finished.length, finishedShown)
+
+    const hiddenRow = hidden > 0
+      ? tip('hidden', <Text color={SECONDARY}>+{hidden} terminati</Text>,
+          finished.slice(finishedShown).map(a => `${AGENT_ICONS[a.status].icon} ${a.description}`).join('\n'), true)
+      : null
+
+    // The pane, row by row: what each row is and how many it takes, so a card knows where its row is.
+    const flow: { node: RenderChildren; rows: number }[] = []
+    const put = (node: RenderChildren, rows = 1) => {
+      if (node !== null && node !== undefined && node !== false) flow.push({ node, rows })
+    }
+    put(header)
+    put(strip)
+    put(doneRow)
+    put(heading('Limiti'), 2)
+    limits.forEach(row => put(row))
+    put(heading('Sessione'), 2)
+    put(
+      <Text wrap="truncate-end">
+        {mainModel === null ? NON_DISPONIBILE : shortModel(mainModel)}
+        <Text color={SECONDARY}>{` · effort ${mainEffort ?? NON_DISPONIBILE}`}</Text>
+      </Text>,
+    )
+    for (const row of [contextBar, legend, cacheBar, cacheClock, last]) put(row)
+    if (spending.length > 0) put(heading('Dove vanno i token'), 2)
+    spending.forEach(row => put(row))
+    put(heading('Subagent', ` ${active.length} attivi · ${rows.length} totali${agentTokens > 0 ? ` · ${tokens(agentTokens)}` : ''}`), 2)
+    if (rows.length === 0) put(<Text color={SECONDARY}>Nessun subagent in questa sessione.</Text>)
+    agentRows.forEach(row => put(row))
+    put(hiddenRow)
+
+    const rowAt = new Map<RenderChildren, number>()
+    let height = 0
+    for (const item of flow) {
+      rowAt.set(item.node, height)
+      height += item.rows
+    }
+    const cardNodes = cards.map(card => {
+      const at = rowAt.get(card.node) ?? 0
+      const lines = card.full.split('\n').reduce((n, line) => n + Math.max(1, Math.ceil(line.length / Math.max(1, width - 4))), 0)
+      const tall = lines + 2
+      const top = at + 1 + tall <= Math.max(room, height) ? at + 1 : Math.max(0, at - tall)
+      return (
+        <Box
+          position="absolute"
+          top={top}
+          left={0}
+          width={width}
+          display="none"
+          hover={{ scope: card.scope, display: 'flex' }}
+          borderStyle="round"
+          borderColor={HEADER}
+          backgroundColor={TIP_BG}
+          paddingX={1}
+        >
+          <Text wrap="wrap" color={GLOW}>{card.full}</Text>
+        </Box>
+      )
+    })
 
     schedule($, now)
 
     return (
       <Box flexDirection="column" width={width}>
-        {header}
-        {strip}
-        {doneRow}
-
-        {heading('Limiti')}
-        {limits}
-
-        {heading('Sessione')}
-        <Text wrap="truncate-end">
-          {mainModel === null ? NON_DISPONIBILE : shortModel(mainModel)}
-          <Text color={SECONDARY}>{` · effort ${mainEffort ?? NON_DISPONIBILE}`}</Text>
-        </Text>
-        {contextBar}
-        {legend}
-        {cacheBar}
-        {cacheClock}
-        {last}
-
-        {spending.length > 0 && heading('Dove vanno i token')}
-        {spending}
-
-        {heading('Subagent', ` ${active.length} attivi · ${rows.length} totali${agentTokens > 0 ? ` · ${tokens(agentTokens)}` : ''}`)}
-        {rows.length === 0 && <Text color={SECONDARY}>Nessun subagent in questa sessione.</Text>}
-        {agentRows}
-        {hidden > 0 && <Text color={SECONDARY}>+{hidden} terminati</Text>}
+        {flow.map(item => item.node)}
+        {cardNodes}
       </Box>
     )
   })

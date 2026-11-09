@@ -943,3 +943,76 @@ test('striscia sul terminale: ridisegnata in posto a ~30 fotogrammi, poi verde',
   expect(solid.every(c => c.char === '━' && c.fg === 0x81c784)).toBe(true)
   await done.unmount()
 })
+
+/** The hover card of a row: hidden until the pointer is over the row, the whole text inside. */
+async function card(ui: { find: (query: { type: string; text: RegExp }) => Promise<{ text: string } | undefined> }, text: RegExp) {
+  return (await ui.find({ type: 'Text', text }))?.text
+}
+
+test('tooltip: una descrizione tagliata si legge intera al passaggio del puntatore', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  host(on)
+  on('session.usage', () => ({ value: usage() }))
+  const long = 'Explore the repository and list every place where the mod reads usage, with file and line'
+  on('agent.list', () => ({ value: [{ ...running('a1'), description: long }, { ...running('a2'), description: 'corto' }] }))
+
+  for (const surface of SURFACES) {
+    const ui = await $.ui.mount({ ...PANE, surface })
+    const full = await ui.find({ type: 'Text', text: new RegExp(`^${long}\\n`) })
+    expect(full?.text).toMatch(/\ngeneral-purpose · – · effort – · – · – token$/)
+    // The card is hidden, drawn last over the rows: hovering the row reveals it.
+    const box = await ui.find({ type: 'Box', text: new RegExp(`^${long}\\n`) })
+    expect(box?.props.display).toBe('none')
+    expect(box?.props.position).toBe('absolute')
+    // Placed under its row: the agent rows are the last ones, so the card goes above when it does not fit below.
+    expect(typeof box?.props.top).toBe('number')
+    // A row that fits has no card.
+    expect(await card(ui, /^corto\n/)).toBeUndefined()
+    await ui.unmount()
+  }
+})
+
+test('tooltip: i riassunti mostrano tutto, terminati e server MCP', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  host(on)
+  on('session.usage', (_, e) => ({
+    value: usage({
+      context: {
+        tokens: 40_000, window: 200_000, percent: 20,
+        breakdown: e?.breakdown === undefined ? undefined : {
+          categories: [{ name: 'MCP tools', tokens: 12_000, color: 'x', isDeferred: false, kind: 'used' }],
+          mcpTools: ['Gmail', 'Drive', 'Calendar', 'Gamma'].map((serverName, i) => ({ name: `mcp__${i}`, serverName, tokens: 4_000 - i * 500, isLoaded: true })),
+        } as never,
+      },
+    }),
+  }))
+  const done = (n: number): AgentInfo => ({ ...running(`d${n}`), status: 'completed' })
+  on('agent.list', () => ({ value: [done(1), done(2), done(3), done(4), done(5), done(6), done(7)] }))
+  await measure($, on)
+
+  for (const surface of SURFACES) {
+    const ui = await $.ui.mount({ ...PANE, surface })
+    expect((await ui.find({ type: 'Text', text: /^MCP/ }))?.text).toBe('MCP       Gmail 4k · Drive 4k · +2')
+    expect(await card(ui, /^Gmail 4k\n/)).toBe('Gmail 4k\nDrive 4k\nCalendar 3k\nGamma 3k')
+    expect(await card(ui, /^✓ task d2\n/)).toBe('✓ task d2\n✓ task d1')
+    // Each card right under its row: MCP is the 13th row, '+2 terminati' the 21st.
+    expect((await ui.find({ type: 'Box', text: /^Gmail 4k\n/ }))?.props.top).toBe(13)
+    expect((await ui.find({ type: 'Box', text: /^✓ task d2\n/ }))?.props.top).toBe(21)
+    await ui.unmount()
+  }
+})
+
+test('tooltip: vicino al fondo del pannello la scheda si apre sopra la riga', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  host(on)
+  on('session.usage', () => ({ value: usage() }))
+  const done = (n: number): AgentInfo => ({ ...running(`d${n}`), status: 'completed' })
+  on('agent.list', () => ({ value: [done(1), done(2), done(3), done(4), done(5), done(6), done(7)] }))
+
+  // 14 rows: two finished agents fit, then '+5 terminati' on the last row; its card of five lines goes above.
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal', props: { ...PANE.props, scroll: { offset: 0, bodyRows: 14 } } })
+  const hiddenCard = await ui.find({ type: 'Box', text: /^✓ task d5\n/ })
+  expect(hiddenCard?.text).toBe('✓ task d5\n✓ task d4\n✓ task d3\n✓ task d2\n✓ task d1')
+  expect(hiddenCard?.props.top).toBe(13 - 7)
+  await ui.unmount()
+})
