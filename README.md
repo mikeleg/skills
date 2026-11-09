@@ -8,7 +8,7 @@ Agent skills by mikeleg, installable with [skills.sh](https://skills.sh) or as a
 
 | Skill | What it does | Requirements |
 | --- | --- | --- |
-| `workspace-setup` | Sets up a workspace for agent work on any stack: code repo, docs wiki repo, reference folder, run/debug config, `CLAUDE.md` with real commands and an open-questions file, on Azure DevOps, GitHub or local only. | `git`. Optional: `az` with the azure-devops extension, or `gh`, to create repos, PRs and branch policies. |
+| `workspace-setup` | Sets up a workspace for agent work on any stack: code repo, a wiki repo written as the agent's documentation, reference folder, run/debug config and `CLAUDE.md` with real commands, on Azure DevOps, GitHub or local only. | `git`. Optional: `az` with the azure-devops extension, or `gh`, to create repos, PRs and branch policies. |
 | `shape-it` | Turns a product idea, MVP or feature into a scoped plan and a backlog of vertical slices with acceptance criteria. Writes markdown in the repo and can publish it as tickets. | Optional: `gh` or `az` to publish the backlog to GitHub Issues or Azure DevOps Boards. |
 | `implement` | Implements a slice, spec or set of tickets test-first from its acceptance criteria, checks the result against the spec, simplifies it, reviews it with `/code-review`, guards the quality floor (no new suppressions, skipped tests or removed assertions) and commits. | Claude Code (uses the `/simplify` and `/code-review` skills when available). |
 | `tdd` | Fixes a bug test-first: writes a focused regression test that fails before the fix and passes after it, or the closest practical check when a test isn't worth it. Runs only when invoked explicitly. | None. |

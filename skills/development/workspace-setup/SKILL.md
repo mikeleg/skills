@@ -5,7 +5,7 @@ description: Set up a development workspace for working with a coding agent - co
 
 # Workspace setup
 
-Take an empty folder (or an existing project) to a workspace an agent can work in from the first session: code and docs in separate repos, real build/test/run commands written down, a branch + PR flow, and a place for open questions. The skill assumes no language or framework.
+Take an empty folder (or an existing project) to a workspace an agent can work in from the first session: code and docs in separate repos, real build/test/run commands written down, a branch + PR flow, and a wiki the agent reads as its documentation. The skill assumes no language or framework.
 
 Speak the user's language in conversation. Write files in English unless the user asks otherwise.
 
@@ -13,7 +13,7 @@ Rules that hold for the whole skill:
 
 - **Adapt, don't copy.** The examples below are shapes; use the project's real names, stack and commands.
 - **Don't ask what this skill already decides.** The workspace layout, the branch + PR flow, the "Proposed change" convention for docs, port + mock for integrations, and the 3-line preamble are applied, not debated.
-- **Don't invent.** No made-up build commands, package names, registries or URLs. If the user doesn't know, it goes in `open-questions.md` (step 6), not into a guess.
+- **Don't invent.** No made-up build commands, package names, registries or URLs. If the user doesn't know, it's recorded as an open point where the agent will read it (step 6), not guessed.
 - **Confirm external or hard-to-undo actions one by one:** creating remote repos, branch policies, push, merge, deletes.
 - **Never print tokens or credentials, never write them to a file.**
 - **Commit and push only when asked.**
@@ -41,7 +41,7 @@ Second round, only what the chosen provider needs:
 
 - Azure DevOps: organization, project, app repo name, wiki repo name (default `<app>-wiki`).
 - GitHub: owner (user or org), app repo name, visibility, wiki repo name (default `<app>-wiki`).
-- Internal packages or templates: is there an in-house library, template or starter for this stack? If yes: name, registry/feed, version. If the user doesn't know, it's an open question (Architecture section). Don't guess package names or feeds.
+- Internal packages or templates: is there an in-house library, template or starter for this stack? If yes: name, registry/feed, version. If the user doesn't know, it's an open point (step 6). Don't guess package names or feeds.
 - Existing: URLs of the repos to clone, if step 0 didn't find them.
 
 Then show the **3-line preamble** and wait for confirmation:
@@ -55,12 +55,11 @@ Then show the **3-line preamble** and wait for confirmation:
 ```
 <workspace-root>/      ← opened in the IDE, NOT a git repo
 ├── app/               ← code repo
-├── wiki/              ← docs repo (separate git)
+├── wiki/              ← docs repo the agent reads (separate git)
 ├── reference/         ← UI mocks, external docs, exports
 │   └── mock/current/  ← current version; older ones in mock/<YYYY-MM-DD>/
 ├── .vscode/           ← tasks.json + launch.json with ${workspaceFolder}/app/... paths
-├── CLAUDE.md          ← local-only: map of the workspace and provider (step 7)
-└── open-questions.md  ← local-only until answers are validated (step 6)
+└── CLAUDE.md          ← local-only: map of the workspace and provider (step 7)
 ```
 
 `reference/` is a plain folder by default (it often holds heavy binaries). If the team wants to share it, propose a repo of its own, never inside `app/` or `wiki/`. When a new version of the mocks arrives, move `mock/current/` to `mock/<YYYY-MM-DD>/` first, then replace `current/`.
@@ -96,7 +95,7 @@ In every case: a `.gitignore` for build output, dependencies, local device/IDE f
 
 ## 4. Docs repo (`wiki/`) by provider
 
-The wiki holds the domain and product docs the agent reads. Changes to agreed content go through branch + PR and follow the **Proposed change** convention: an agreed section is never rewritten in place; the change is added below it as a block
+The wiki is written for the agent: it is the documentation it reads before working on a feature (domain language, business rules, decisions, integrations), and every agent working on `app/` is pointed at it. Write it so an agent reading a page cold can act on it: one concept per page, explicit rules over narrative, undecided points marked as such. Changes to agreed content go through branch + PR and follow the **Proposed change** convention: an agreed section is never rewritten in place; the change is added below it as a block
 
 ```
 > **Proposed change** (<author>, <date>)
@@ -109,49 +108,36 @@ and merged into the text only once approved. So the wiki needs a repo with branc
 - **GitHub:** a dedicated `<owner>/<app>-wiki` repo (markdown rendered by GitHub, PRs and reviews). Advise against GitHub's built-in wiki (`<repo>.wiki.git`): no PRs or reviews, flat structure. Diagrams in ```` ```mermaid ```` blocks.
 - **Local only:** `git init -b main` in `wiki/`.
 
-Create only a minimal skeleton: a Home page with the wiki's purpose, the Proposed change convention above, and an empty index. Writing the spec itself is not this skill's job.
+Create only a minimal skeleton: a Home page that says the wiki is the agent's documentation and how to read it, the Proposed change convention above, the open-point convention (step 6), and an empty index. Writing the spec itself is not this skill's job.
 
 ## 5. Run & debug
 
 `.vscode/` at the **workspace root**, never inside `app/`.
 
-- Generate `tasks.json` / `launch.json` only with real commands: read from the existing project (build files, manifests, scripts, `docker-compose.yml`…) or confirmed by the user. For a new project with no code yet, create the files with only the tasks you're sure of and log the rest in `open-questions.md`.
+- Generate `tasks.json` / `launch.json` only with real commands: read from the existing project (build files, manifests, scripts, `docker-compose.yml`…) or confirmed by the user. For a new project with no code yet, create the files with only the tasks you're sure of and record the rest as open points (step 6).
 - A compound task that starts all parts of the stack together; maintenance tasks (reset DB, logs, stop).
 - A `problemMatcher` with "server ready" detection for debugging.
 - With device testing: one scenario per network context (local, LAN, hotspot). Never assume IPs: ask or detect, and write them as values to verify.
 
-## 6. Internal packages, integrations and open questions
+## 6. Internal packages, integrations and open points
 
-- **Internal packages/templates:** if one exists for the chosen stack, configure it instead of rewriting the wiring from scratch (registry/feed in the package manager's config file, no credentials in the file: use the registry's own auth mechanism). If name, feed or version are missing, don't proceed on that point: log an open question.
-- **External integrations:** for each one, a port (interface) + a mock implementation registered by default, so the app runs and tests without the real system. Questions for the third party go in `open-questions.md`, grouped by integration operation.
+- **Internal packages/templates:** if one exists for the chosen stack, configure it instead of rewriting the wiring from scratch (registry/feed in the package manager's config file, no credentials in the file: use the registry's own auth mechanism). If name, feed or version are missing, don't proceed on that point: record it as an open point.
+- **External integrations:** for each one, a port (interface) + a mock implementation registered by default, so the app runs and tests without the real system. Each integration gets a wiki page (what the system is, the operations used, the port that wraps them); what isn't known yet about it is an open point on that page.
 
-### The open questions file
+### Open points
 
-Create `<workspace-root>/open-questions.md` if it doesn't exist (if it does, append, never rewrite). It sits at the root, which is not a git repo, so it stays local-only until answers are validated.
+There is no separate questions file. An open point lives where the agent will read it, so it can't act on a guess:
 
-```
-# Open questions – <project>
+- **Domain, product, integrations** → in the wiki page it concerns, as a block right where the missing answer matters:
 
-> Local-only until validated. When an answer is validated, it moves into the wiki
-> or CLAUDE.md and the entry goes to "Closed".
+  ```
+  > **Open** (<date>): <question> · Blocks: <what can't be decided without it> · Ask: <who>
+  ```
 
-## External integrations
-### <System> – <Operation>
-| ID | Question | Why it blocks | Who answers | Status | Answer |
-|---|---|---|---|---|---|
+  When the answer is agreed, replace the block with the rule itself (through the Proposed change flow if the page is already agreed).
+- **Development environment** (internal feed, network IPs, a branch policy that couldn't be applied) → in `app/CLAUDE.md`, in a short "To verify" list.
 
-## Product
-## UX
-## Architecture
-## Test
-<!-- same table; IDs PM-nn, UX-nn, ARC-nn, QA-nn; integrations INT-nn -->
-
-## Closed
-| ID | Question | Answer | Validated by / on | Recorded in |
-|---|---|---|---|---|
-```
-
-Statuses: *Open* → *Sent* → *Answer to validate* → *Validated*. Third-party questions always go under External integrations, grouped by operation. Open points from the setup itself (internal packages/feeds, network IPs, policies that couldn't be applied) go here with an ID, not only in the final summary.
+The wiki Home explains the convention, so an agent that meets an **Open** block stops and asks instead of assuming.
 
 ## 7. Instructions for the agent
 
@@ -164,7 +150,8 @@ Statuses: *Open* → *Sent* → *Answer to validate* → *Validated*. Third-part
 - Security: never print tokens or put them in files; confirm before push, merge, sending, deleting.
 - The 3-line preamble ritual (goal, source of truth, definition of done) before non-trivial work, and the rule "if sources disagree, surface it and ask".
 - Wiki: the Proposed change convention; wiki commits only on request.
-- Open questions: in `../open-questions.md` (local-only), format from step 6.
+- Domain docs: `../wiki/` (or its URL) is the agent's documentation; read the relevant pages before working on a feature, and stop at **Open** blocks.
+- To verify: the environment's open points from step 6, if any.
 
 **`<workspace-root>/CLAUDE.md` (local-only)** – short, read in every session opened on the root:
 
@@ -175,11 +162,11 @@ Statuses: *Open* → *Sent* → *Answer to validate* → *Validated*. Third-part
 - app/  → <remote url or "local">
 - wiki/ → <remote url or "local">  · type: <code wiki | markdown repo | local>
 - reference/ → current mocks in reference/mock/current/
-- Open questions: open-questions.md (local-only)
+- wiki/ is the agent's documentation; open points are **Open** blocks in its pages
 - Project instructions: app/CLAUDE.md
 ```
 
-Facts that can't be derived from the code (decisions, constraints, conventions) go in CLAUDE.md; don't duplicate them elsewhere.
+How to build, test and work on the code goes in `app/CLAUDE.md`; domain language, business rules and product decisions go in the wiki. Each fact lives in one place: don't duplicate.
 
 ## 8. Close
 
@@ -187,12 +174,11 @@ Facts that can't be derived from the code (decisions, constraints, conventions) 
    - Workspace root is not a git repo; `app/`, `wiki/`, `reference/` exist
    - `app/` repo with remote (or local), `.gitignore`
    - `main` protected (policy, ruleset, hook, or written convention)
-   - `wiki/` repo with branches + PRs, Home page with the Proposed change convention
+   - `wiki/` repo with branches + PRs, Home page saying it's the agent's documentation, with the Proposed change and Open conventions
    - `.vscode/` at the root with real tasks and launch configs
-   - Internal packages configured, or logged as open questions
-   - Integrations behind a port + mock
+   - Internal packages configured, or recorded as open points
+   - Integrations behind a port + mock, one wiki page each
    - `app/CLAUDE.md` and root `CLAUDE.md` written, with real commands
-   - `open-questions.md` created, with the setup's open points
-2. List the open points with their ID from `open-questions.md`.
+2. List the open points and where each one was recorded (wiki page or `app/CLAUDE.md`).
 3. Ask whether to commit (and push, if there's a remote) the scaffolding of `app/` and `wiki/`: one commit per repo, descriptive message. Never without confirmation.
 4. Propose the next step: `shape-it` to turn the first feature or MVP into a backlog.
