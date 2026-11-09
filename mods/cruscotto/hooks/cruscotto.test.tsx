@@ -125,30 +125,84 @@ test('contesto: barra divisa per categoria con legenda e MCP', async ($, on) => 
   }
 })
 
-test('limite quasi esaurito: percentuale e reset', async ($, on) => {
+test('limiti: 5 ore e settimana con il reset nella stessa colonna', async ($, on) => {
   mock.clock(on, { now: NOW })
+  mock.store(on)
   host(on)
-  const resetsAt = new Date(NOW + (2 * 60 + 15) * 60_000).toISOString()
+  const at = (hours: number) => new Date(NOW + hours * 3_600_000).toISOString()
   on('session.usage', () => ({
     value: usage({
       rateLimits: [
-        { kind: 'five_hour', percentUsed: 90, resetsAt },
-        { kind: 'seven_day', percentUsed: 30 },
-        { kind: 'spend_limit', percentUsed: 65, resetsAt: new Date(NOW + (3 * 24 + 4) * 3_600_000).toISOString() },
+        { kind: 'spend_limit', percentUsed: 65 },
+        { kind: 'seven_day', percentUsed: 30, resetsAt: at(3 * 24 + 4) },
+        { kind: 'five_hour', percentUsed: 90, resetsAt: at(2.25) },
       ],
     }),
   }))
   on('agent.list', () => ({ value: [] }))
+  const DAY = '(lun|mar|mer|gio|ven|sab|dom) \\d\\d:\\d\\d'
 
   for (const surface of SURFACES) {
     const ui = await $.ui.mount({ ...PANE, surface })
-    expect((await ui.find({ type: 'Text', text: /^5 ore/ }))?.text).toMatch(/^5 ore {4}━{14}─{2} {2}90% {2}◷ 2h15 \(\d\d:\d\d\)$/)
-    expect((await ui.find({ type: 'Text', text: /^7 giorni/ }))?.text).toMatch(/^7 giorni ━{5}─{11} {2}30% {2}◷ n\/d$/)
-    expect((await ui.find({ type: 'Text', text: /^Spesa/ }))?.text).toMatch(
-      /^Spesa {4}━{10}─{6} {2}65% {2}◷ 3g 4h \((lun|mar|mer|gio|ven|sab|dom) \d\d:\d\d\)$/,
-    )
+    const five = (await ui.find({ type: 'Text', text: /^5 ore/ }))?.text ?? ''
+    const week = (await ui.find({ type: 'Text', text: /^7 giorni/ }))?.text ?? ''
+    expect(five).toMatch(new RegExp(`^5 ore {4}━{14}─{2}  90%  ◷ {4}2h15  ${DAY}$`))
+    expect(week).toMatch(new RegExp(`^7 giorni ━{5}─{11}  30%  ◷ {3}3g 4h  ${DAY}$`))
+    expect((await ui.find({ type: 'Text', text: /^Spesa/ }))?.text).toBe(`Spesa    ${'━'.repeat(10)}${'─'.repeat(6)}  65%  ◷ n/d`)
+    // The two resets start, count and end in the same columns.
+    expect(week.indexOf('◷')).toBe(five.indexOf('◷'))
+    expect(week.length).toBe(five.length)
     await ui.unmount()
   }
+})
+
+test('limiti: il reset settimanale ricordato quando la lettura non lo porta', async ($, on) => {
+  const clock = mock.clock(on, { now: NOW })
+  mock.store(on, { resets: { seven_day: new Date(NOW + 26 * 3_600_000).toISOString() } })
+  host(on)
+  let limits: SessionUsage['rateLimits'] = [{ kind: 'five_hour', percentUsed: 12, resetsAt: new Date(NOW + 3_600_000).toISOString() }]
+  on('session.usage', () => ({ value: usage({ rateLimits: limits }) }))
+  on('agent.list', () => ({ value: [] }))
+  on('session.start', () => ({ cwd: '/r' }))
+  on('command.register', () => ({ value: { command: 'cruscotto' } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.close', () => ({ value: undefined }))
+  await $.session.start({ cwd: '/r', surface: 'terminal', isInteractive: true })
+
+  // Not reported at all: the row stays, with the reset it last had.
+  let ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^7 giorni/ }))?.text).toMatch(/^7 giorni ─{16} {4}– {2}◷ {2}≈1g 2h {2}\S+ \d\d:\d\d$/)
+  await ui.unmount()
+
+  // Reported without a reset: the percentage is the reading's, the reset the remembered one.
+  limits = [...limits, { kind: 'seven_day', percentUsed: 40 }]
+  ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^7 giorni/ }))?.text).toMatch(/  40%  ◷ {2}≈1g 2h  /)
+  await ui.unmount()
+
+  // Past it, the week rolls on by seven days.
+  await clock.advance(27 * 3_600_000)
+  ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^7 giorni/ }))?.text).toMatch(/◷ ≈6g 23h  /)
+  await ui.unmount()
+})
+
+test('limiti: un reset letto resta per la sessione dopo', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  const reset = new Date(NOW + 50 * 3_600_000).toISOString()
+  const saved: unknown[] = []
+  on('store.set', (_, e) => {
+    saved.push(e.value)
+    return { value: undefined }
+  })
+  host(on)
+  on('session.usage', () => ({ value: usage() }))
+  on('agent.list', () => ({ value: [] }))
+  on('session.measure', () => ({ changed: [] }))
+
+  await $.session.measure({ context: { window: 200_000 }, rateLimits: [{ kind: 'seven_day', percentUsed: 5, resetsAt: reset }], changed: [] })
+  await $.session.measure({ context: { window: 200_000 }, rateLimits: [{ kind: 'seven_day', percentUsed: 6, resetsAt: reset }], changed: [] })
+  expect(saved).toEqual([{ seven_day: reset }])
 })
 
 test('nessuna lettura: limiti, modello e token non disponibili', async ($, on) => {

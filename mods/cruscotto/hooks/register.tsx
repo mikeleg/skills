@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import type { AgentInfo, AgentStatus, EngineInterface, Register, Timer, TurnUsage } from 'claude-code'
+import type { AgentInfo, AgentStatus, EngineInterface, Register, SessionRateLimit, Timer, TurnUsage } from 'claude-code'
 
 import type { ContextShape, CruscottoAgent, TokenCounts, TokenLedger, ToolLedger } from '../types'
 
@@ -17,6 +17,13 @@ const RED = '#EF9A9A'
 const SEGMENTS = [HEADER, '#B39DDB', AMBER, '#90CAF9', '#A5D6A7', SECONDARY]
 
 const LIMIT_LABEL_WIDTH = 8
+/** The time left before a reset, right-aligned: '≈6g 23h' at the widest. */
+const RESET_WIDTH = 7
+const WEEK_MS = 7 * 24 * 60 * 60_000
+/** The `$.store` key of the last reset seen of each window. */
+const RESETS_KEY = 'resets'
+/** The windows that keep their row with a remembered reset when a reading leaves them out. */
+const KEPT_LIMITS = ['five_hour', 'seven_day']
 const BRANCH_REFRESH_MS = 30_000
 const BREAKDOWN_REFRESH_MS = 60_000
 const STATUS_DEBOUNCE_MS = 200
@@ -104,6 +111,7 @@ let cacheWarmUntil = 0
 let costBefore: number | undefined
 let statusTimer: Timer | undefined
 const shown = new Map<string, number>()
+let knownResets: Record<string, string> = {}
 
 function clockTime(iso: string): string {
   const d = new Date(iso)
@@ -180,13 +188,39 @@ function tween(key: string, target: number): number {
   return next
 }
 
-function resetText(resetsAt: string | undefined, now: number): string {
+/**
+ * Every window's reset in the same columns: the time left right-aligned,
+ * then the day and the hour. `≈` marks one remembered, not just reported.
+ */
+function resetText(resetsAt: string | undefined, now: number, isRemembered = false): string {
   if (resetsAt === undefined) return '◷ n/d'
   const minutes = Math.max(0, Math.round((Date.parse(resetsAt) - now) / 60_000))
   const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `◷ ${hours}h${pad2(minutes % 60)} (${clockTime(resetsAt)})`
-  const weekday = WEEKDAYS[new Date(resetsAt).getDay()]
-  return `◷ ${Math.floor(hours / 24)}g ${hours % 24}h (${weekday} ${clockTime(resetsAt)})`
+  const left = hours < 24 ? `${hours}h${pad2(minutes % 60)}` : `${Math.floor(hours / 24)}g ${hours % 24}h`
+  const at = `${WEEKDAYS[new Date(resetsAt).getDay()]} ${clockTime(resetsAt)}`
+  return `◷ ${`${isRemembered ? '≈' : ''}${left}`.padStart(RESET_WIDTH)}  ${at}`
+}
+
+/**
+ * The reset to show for a window: the one reported, else the last one seen.
+ * The weekly window rolls every seven days, so a past one moves on by weeks.
+ */
+function resetFor(kind: string, reported: string | undefined, now: number): { at?: string; isRemembered: boolean } {
+  if (reported !== undefined) return { at: reported, isRemembered: false }
+  const seen = knownResets[kind]
+  if (seen === undefined) return { isRemembered: false }
+  let at = Date.parse(seen)
+  if (Number.isNaN(at)) return { isRemembered: false }
+  if (kind === 'seven_day') while (at <= now) at += WEEK_MS
+  return at > now ? { at: new Date(at).toISOString(), isRemembered: true } : { isRemembered: false }
+}
+
+/** Keeps each window's last reported reset, in the store, so the next session has it too. */
+function rememberResets($: EngineInterface, limits: readonly SessionRateLimit[]): void {
+  const fresh = limits.filter(l => l.resetsAt !== undefined && knownResets[l.kind] !== l.resetsAt)
+  if (fresh.length === 0) return
+  knownResets = { ...knownResets, ...Object.fromEntries(fresh.map(l => [l.kind, l.resetsAt as string])) }
+  void $.store.set(RESETS_KEY, knownResets).catch(() => {})
 }
 
 function folderName(cwd: string): string {
@@ -315,6 +349,10 @@ export const register: Register = (on, options) => {
     void $.ui.open({ id: PANE, title: 'Cruscotto' })
     // The Contesto tab of an earlier version outlives a reload: close it once.
     void $.ui.close({ id: 'cruscotto-contesto' }).catch(() => {})
+    const stored = await $.store.get(RESETS_KEY).catch(() => undefined)
+    if (stored !== null && typeof stored === 'object') {
+      knownResets = Object.fromEntries(Object.entries(stored).filter((kv): kv is [string, string] => typeof kv[1] === 'string'))
+    }
     const { lastMainAt } = await read($, ledger)
     cacheWarmUntil = lastMainAt === null ? 0 : lastMainAt + cacheTtlMs
     tickMs = 0
@@ -332,6 +370,7 @@ export const register: Register = (on, options) => {
   })
 
   on('session.measure', async ($, e, next) => {
+    rememberResets($, e.rateLimits)
     await refreshBranch($)
     await refreshContext($)
     $.ui.invalidate('ui.render')
@@ -475,7 +514,7 @@ export const register: Register = (on, options) => {
     const width = Math.max(24, e.props.bodyColumns)
     const room = e.props.scroll?.bodyRows ?? e.viewport?.rows ?? 40
     const barCells = clamp(width - 22, 10, 30)
-    const limitCells = clamp(width - 38, 8, 16)
+    const limitCells = clamp(width - 44, 6, 16)
     const tick = Math.floor(now / TICK_FAST)
     const pulse = Math.floor(now / 480) % 2 === 0
 
@@ -522,17 +561,30 @@ export const register: Register = (on, options) => {
       </Box>
     )
 
-    // Limits.
-    const limits = usage.rateLimits.length === 0
+    // Limits: 5 hours, then the week, then the rest, their resets in one column.
+    rememberResets($, usage.rateLimits)
+    const reported = new Set(usage.rateLimits.map(l => l.kind))
+    const kept = KEPT_LIMITS.filter(kind => !reported.has(kind) && resetFor(kind, undefined, now).at !== undefined)
+    const windows: { kind: string; percentUsed?: number; resetsAt?: string }[] = [
+      ...usage.rateLimits,
+      ...kept.map(kind => ({ kind })),
+    ].sort((a, b) => (KEPT_LIMITS.indexOf(a.kind) + 1 || 99) - (KEPT_LIMITS.indexOf(b.kind) + 1 || 99))
+    const limits = windows.length === 0
       ? [<Text color={SECONDARY}>{NON_DISPONIBILE} (nessuna lettura ancora)</Text>]
-      : usage.rateLimits.map(limit => (
-          <Text wrap="truncate-end">
-            {`${(LIMIT_NAMES[limit.kind] ?? limit.kind).padEnd(LIMIT_LABEL_WIDTH)} `}
-            {bar(`limit:${limit.kind}`, limit.percentUsed, limitCells)}
-            {` ${`${limit.percentUsed}%`.padStart(4)}  `}
-            <Text color={SECONDARY}>{resetText(limit.resetsAt, now)}</Text>
-          </Text>
-        ))
+      : windows.map(limit => {
+          const reset = resetFor(limit.kind, limit.resetsAt, now)
+          const used = limit.percentUsed
+          return (
+            <Text wrap="truncate-end">
+              {`${(LIMIT_NAMES[limit.kind] ?? limit.kind).padEnd(LIMIT_LABEL_WIDTH)} `}
+              {used === undefined
+                ? <Text color={BAR_EMPTY}>{'─'.repeat(limitCells)}</Text>
+                : bar(`limit:${limit.kind}`, used, limitCells)}
+              {` ${(used === undefined ? '–' : `${Math.round(used)}%`).padStart(4)}  `}
+              <Text color={reset.isRemembered ? BAR_EMPTY : SECONDARY}>{resetText(reset.at, now, reset.isRemembered)}</Text>
+            </Text>
+          )
+        })
 
     // Context: the window as a bar of its categories once a summary is known.
     const parts = shape === null ? [] : shape.parts.slice(0, TOP_SEGMENTS)
