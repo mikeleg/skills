@@ -1,6 +1,6 @@
 ---
 name: workspace-setup
-description: Set up a development workspace for working with a coding agent - code repo, a wiki the agent maintains as its second brain (Karpathy's LLM Wiki pattern), raw-sources folder, run/debug config and agent instructions - on Azure DevOps, GitHub or local only, for any stack. Use when the user wants to start a new project, set up or initialize a workspace or repo, onboard an existing repo for agent work, or says "prepare the repo", "set up the project", "init the workspace".
+description: Set up a development workspace for working with a coding agent - code repo, a wiki the agent maintains as its second brain (Karpathy's LLM Wiki pattern), raw-sources folder, run/debug config and agent instructions - on Azure DevOps, GitHub or local only, for any stack, and installs the workflow skills (shape-it, implement, tdd) if they are missing. Use when the user wants to start a new project, set up or initialize a workspace or repo, onboard an existing repo for agent work, or says "prepare the repo", "set up the project", "init the workspace".
 ---
 
 # Workspace setup
@@ -25,8 +25,10 @@ Rules that hold for the whole skill:
 3. Do `app/`, `wiki/`, `reference/`, `.vscode/`, `CLAUDE.md` already exist? Are they git repos? With which remote host (`dev.azure.com` / `visualstudio.com` → Azure DevOps, `github.com` → GitHub)?
 4. Which CLIs are available: `git`, `az` (+ `azure-devops` extension), `gh`.
 5. The stack already in `app/`, if any: recognise it from build files, manifests and the installed toolchain, without assuming one.
+6. Which agents the project is set up for besides Claude Code: `AGENTS.md`, `.github/copilot-instructions.md`, `.codex/`, `.cursor/` in `app/`.
+7. Which of the workflow's skills are already available (step 8).
 
-Install nothing without asking. Use what you found to pre-fill the answers below; never ask what you already know.
+Install nothing without asking (step 8 installs missing skills after one confirmation). Use what you found to pre-fill the answers below; never ask what you already know.
 
 ## 1. Questions (one round, with AskUserQuestion)
 
@@ -210,6 +212,7 @@ There is no separate questions file. An open point lives where the agent will re
 - Real build, test, typecheck and run commands. `implement` and other skills read them from here.
 - Provider and flow: dedicated branch, PR with context / what changes / how to verify, the provider's PR commands, the `main` protection rule (applied, or convention).
 - Backlog: `docs/backlog/<feature>/` (scope.md + backlog.md, written by `shape-it`).
+- Workflow: `shape-it` → `implement` (with `/simplify`, `/code-review`); `tdd` for bugs. Where they come from (plugin or `.claude/skills/`) and how to install them if missing.
 - Security: never print tokens or put them in files; confirm before push, merge, sending, deleting.
 - The 3-line preamble ritual (goal, source of truth, definition of done) before non-trivial work, and the rule "if sources disagree, surface it and ask".
 - Wiki (`../wiki/`), in four lines: start every task from `../wiki/index.md`, open only the pages it touches and follow their `code:` pointers, search the code only for what the wiki doesn't answer; stop at **Open** blocks; read `../wiki/CLAUDE.md` before writing to the wiki; end every task with the wiki's **task** operation (update touched pages, decisions, index, log). Never edit `../reference/`.
@@ -230,7 +233,41 @@ There is no separate questions file. An open point lives where the agent will re
 
 `CLAUDE.md` files are loaded into every session, so keep them short: commands, flow, rules for working, and the pointer to the wiki. Everything else (domain language, business rules, decisions, where things live) goes in the wiki, which is read on demand. Each fact lives in one place: don't duplicate.
 
-## 8. Close
+## 8. Skills the workflow needs
+
+The workspace is only useful if the agent has the skills that work in it. Check before closing, and install what's missing.
+
+| Skill | Where it comes from | Used for |
+|---|---|---|
+| `shape-it` | `mikeleg-skills` plugin (marketplace `mikeleg/skills`) | idea → scope → backlog of slices |
+| `implement` | `mikeleg-skills` plugin | slice → tested, reviewed commit |
+| `tdd` | `mikeleg-skills` plugin | bug fix, test first (invoked by hand) |
+| `/simplify`, `/code-review`, `/verify` | bundled with Claude Code | used by `implement` |
+
+**Check.** A skill counts as available if it appears in this session's list of available skills. To see where it comes from, and to catch one installed but disabled:
+
+- `claude plugin list --json`: look for `mikeleg-skills@mikeleg` with `"enabled": true`, and note its `scope`;
+- `app/.claude/skills/<name>/SKILL.md` (project) and `~/.claude/skills/<name>/SKILL.md` (user), for copies installed with skills.sh or by hand.
+
+**Install what's missing**, after one confirmation that names the missing skills and the exact command. Install at **project scope**, so the setting is versioned with `app/` and every clone asks for the same skills:
+
+- **Claude Code only** (the default):
+  ```
+  claude plugin marketplace add mikeleg/skills --scope project
+  claude plugin install mikeleg-skills@mikeleg --scope project
+  ```
+  run from `app/`. This records the marketplace and the plugin in `app/.claude/settings.json`; teammates get the marketplace once they trust the folder and install the plugin themselves (`/plugin`). On Claude Code v2.1.292 or later, `claude plugin install mikeleg-skills --marketplace mikeleg/skills --scope project` does both in one step.
+- **Other agents too** (step 0 found Copilot, Codex, Cursor…), or no `claude` CLI: install the skill files into the repo with skills.sh, so every agent reads the same copy:
+  ```
+  npx skills add mikeleg/skills -s shape-it implement tdd -a claude-code <other agents> -y
+  ```
+  run from `app/`; it writes `app/.claude/skills/` (and each agent's own folder), to be committed. Update later with `npx skills update`.
+- **Bundled skills missing** means Claude Code is too old: propose `claude update`. Don't try to replace them with copies.
+- If a skill exists in more than one place (user and project, plugin and skills.sh copy), say so: the copies drift. Keep one.
+
+New skills show up after `/reload-plugins` or in a new session; say which. If the user declines an install, the checklist marks it ⏳ and the next steps say what won't work without it.
+
+## 9. Close
 
 1. Show the checklist, one line per item: ✅ done · ⏳ convention / to complete · ❌ not applicable, with a one-line reason for every ⏳ and ❌.
    - Workspace root is not a git repo; `app/`, `wiki/`, `reference/` exist
@@ -242,6 +279,7 @@ There is no separate questions file. An open point lives where the agent will re
    - Internal packages configured, or recorded as open points
    - Integrations behind a port + mock, one wiki page each
    - `app/CLAUDE.md` and root `CLAUDE.md` written, with real commands
+   - Workflow skills available: `shape-it`, `implement`, `tdd`, and the bundled `/simplify`, `/code-review`, `/verify`; installed at project scope where missing
 2. List the open points and where each one was recorded (wiki page or `app/CLAUDE.md`).
 3. Ask whether to commit (and push, if there's a remote) the scaffolding of `app/` and `wiki/`: one commit per repo, descriptive message. Never without confirmation.
 4. Propose the next step: ingest the sources already in `reference/` one at a time, then `shape-it` to turn the first feature or MVP into a backlog.
