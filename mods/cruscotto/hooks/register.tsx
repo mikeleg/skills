@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { AgentInfo, AgentStatus, EngineInterface, Register, SessionRateLimit, Timer, TurnUsage } from 'claude-code'
 
-import type { ContextShape, CruscottoAgent, DoneInfo, TokenCounts, TokenLedger, ToolLedger } from '../types'
+import type { ContextShape, CruscottoAgent, DoneInfo, LiveOutput, TokenCounts, TokenLedger, ToolLedger } from '../types'
 
 const PANE = 'cruscotto'
 const NON_DISPONIBILE = 'non disponibile'
@@ -44,6 +44,14 @@ const REREAD_AT = 3
 const TOP_TOOLS = 3
 const TOP_REREADS = 2
 const TOP_SEGMENTS = 5
+/** Turns kept for the trace. */
+const HISTORY_TURNS = 60
+/** Outputs smaller than this are not weighed; at most LIVE_MAX are, the largest. */
+const LIVE_MIN = 200
+const LIVE_MAX = 300
+const SPARK = '▁▂▃▄▅▆▇█'
+/** The left column of the token rows. */
+const ROW_LABEL = 10
 
 /** How long the end-of-work line stays lit in the pane. */
 const BANNER_MS = 6_000
@@ -79,13 +87,13 @@ const agents = atom({ plugin: 'cruscotto', key: 'agents' } as const, {}, { shape
 const activity = atom({ plugin: 'cruscotto', key: 'activity' } as const, { files: [], commands: 0 })
 const ledger = atom(
   { plugin: 'cruscotto', key: 'ledger' } as const,
-  { total: ZERO, last: null, lastMainAt: null },
-  { shape: 'ledger-1' },
+  { total: ZERO, last: null, lastMainAt: null, history: [], compactedSince: false },
+  { shape: 'ledger-2' },
 )
 const tools = atom(
   { plugin: 'cruscotto', key: 'tools' } as const,
-  { byTool: {}, biggest: null, reads: {} },
-  { shape: 'tools-1' },
+  { byTool: {}, written: {}, reads: {}, requests: 0, live: [] },
+  { shape: 'tools-2' },
 )
 const context = atom({ plugin: 'cruscotto', key: 'context' } as const, null, { shape: 'context-1' })
 const done = atom({ plugin: 'cruscotto', key: 'done' } as const, null, { shape: 'done-1' })
@@ -493,6 +501,20 @@ async function announce($: EngineInterface, d: DoneInfo): Promise<void> {
   ])
 }
 
+/** What the model wrote into a tool's input: a Write's content, an Edit's new text, a notebook cell. */
+function writtenText(input: Record<string, unknown>): string {
+  for (const key of ['content', 'new_string', 'new_source']) {
+    const value = input[key]
+    if (typeof value === 'string') return value
+  }
+  return ''
+}
+
+/** One row of the token section: its label in a fixed column, then its parts. */
+function rowLabel(label: string): string {
+  return label.padEnd(ROW_LABEL)
+}
+
 export const register: Register = (on, options) => {
   cacheTtlMs = options.cacheTtl === '1h' ? 60 * 60_000 : 5 * 60_000
   notifyAfterMs = NOTIFY_AFTER[String(options.notifyAfter ?? '30s')] ?? (NOTIFY_AFTER['30s'] as number)
@@ -539,6 +561,14 @@ export const register: Register = (on, options) => {
 
   on('session.compact', async ($, e, next) => {
     const result = await next(e)
+    // The main loop's context is now a summary: nothing of what it held is sent again.
+    const isSkipped = 'skip' in result && typeof result.skip === 'string'
+    if (e.agentId === undefined && e.trigger !== 'precompute' && !isSkipped) {
+      try {
+        await update($, tools, all => ({ ...all, live: [] }))
+        await update($, ledger, l => ({ ...l, compactedSince: true }))
+      } catch {}
+    }
     await refreshContext($, true)
 
     return result
@@ -573,18 +603,33 @@ export const register: Register = (on, options) => {
       } else if (e.tool === 'Bash') {
         await update($, activity, all => ({ ...all, commands: all.commands + 1 }))
       }
-      const size = Math.round((ran.text?.length ?? 0) / 4)
-      const readPath = e.tool === 'Read' ? e.file_path : undefined
-      const label = toolLabel(e as unknown as { tool: string } & Record<string, unknown>)
-      await update($, tools, (all): ToolLedger => {
-        const was = all.byTool[e.tool] ?? { tokens: 0, calls: 0 }
-        const reads = readPath === undefined ? all.reads : { ...all.reads, [readPath]: (all.reads[readPath] ?? 0) + 1 }
-        return {
-          byTool: { ...all.byTool, [e.tool]: { tokens: was.tokens + size, calls: was.calls + 1 } },
-          biggest: all.biggest === null || size > all.biggest.tokens ? { tool: e.tool, label, tokens: size } : all.biggest,
-          reads: Object.keys(reads).length > 100 ? Object.fromEntries(Object.entries(reads).slice(-100)) : reads,
-        }
-      })
+      // The main loop's context alone: a subagent's outputs never reach it.
+      if (e.agentId === undefined) {
+        const size = Math.round((ran.text?.length ?? 0) / 4)
+        const wrote = Math.round(writtenText(e as unknown as Record<string, unknown>).length / 4)
+        const readPath = e.tool === 'Read' ? e.file_path : undefined
+        const label = toolLabel(e as unknown as { tool: string } & Record<string, unknown>)
+        await update($, tools, (all): ToolLedger => {
+          const was = all.byTool[e.tool] ?? { tokens: 0, calls: 0 }
+          const wasWritten = all.written[e.tool] ?? { tokens: 0, calls: 0 }
+          const reads = readPath === undefined ? all.reads : { ...all.reads, [readPath]: (all.reads[readPath] ?? 0) + 1 }
+          let live = all.live
+          if (size >= LIVE_MIN) {
+            live = [...live, { tool: e.tool, label, tokens: size, at: all.requests }]
+            if (live.length > LIVE_MAX) {
+              const smallest = live.reduce((min, o, i) => (o.tokens < (live[min] as LiveOutput).tokens ? i : min), 0)
+              live = live.filter((_, i) => i !== smallest)
+            }
+          }
+          return {
+            ...all,
+            byTool: { ...all.byTool, [e.tool]: { tokens: was.tokens + size, calls: was.calls + 1 } },
+            written: wrote === 0 ? all.written : { ...all.written, [e.tool]: { tokens: wasWritten.tokens + wrote, calls: wasWritten.calls + 1 } },
+            reads: Object.keys(reads).length > 100 ? Object.fromEntries(Object.entries(reads).slice(-100)) : reads,
+            live,
+          }
+        })
+      }
     } catch {}
     statusSoon($)
 
@@ -605,6 +650,11 @@ export const register: Register = (on, options) => {
   })
 
   on('turn.step', async function* ($, e, next) {
+    if (e.agentId === undefined) {
+      try {
+        await update($, tools, all => ({ ...all, requests: all.requests + 1 }))
+      } catch {}
+    }
     const level = e.effort
     if (level !== undefined) {
       const id = e.agentId
@@ -634,12 +684,16 @@ export const register: Register = (on, options) => {
     const result = await next(e)
     if (id === undefined) {
       mainRunning = false
-      const after = (await $.session.usage().catch(() => undefined))?.cost?.usd
+      const measured = await $.session.usage().catch(() => undefined)
+      const after = measured?.cost?.usd
       const costUsd = after !== undefined && costBefore !== undefined ? Math.max(0, after - costBefore) : undefined
+      const ctx = measured?.context.tokens
       await update($, ledger, (l): TokenLedger => ({
         total: add(l.total, used),
         last: e.usage === undefined ? l.last : { ...used, costUsd },
         lastMainAt: e.usage === undefined ? l.lastMainAt : now,
+        history: ctx === undefined ? l.history : [...l.history, { ctx, compacted: l.compactedSince }].slice(-HISTORY_TURNS),
+        compactedSince: ctx === undefined ? l.compactedSince : false,
       }))
       if (e.usage !== undefined) {
         cacheWarmUntil = now + cacheTtlMs
@@ -862,36 +916,83 @@ export const register: Register = (on, options) => {
       </Text>
     )
 
-    // Where the tokens go: tool outputs, the largest one, files read again, MCP schemas.
-    const byTool = Object.entries(out.byTool).filter(([, t]) => t.tokens > 0).sort((a, b) => b[1].tokens - a[1].tokens)
-    const toolRow = byTool.length === 0 ? null : (
+    // Where the tokens go, the main loop's alone: what tools gave it, what it wrote,
+    // what weighs on every request, files read again, MCP schemas, the turns' trace.
+    const top = (entries: Record<string, { tokens: number; calls: number }>) =>
+      Object.entries(entries)
+        .filter(([, t]) => t.tokens > 0)
+        .sort((a, b) => b[1].tokens - a[1].tokens)
+        .slice(0, TOP_TOOLS)
+        .map(([name, t]) => `${name} ${tokens(t.tokens)}×${t.calls}`)
+        .join(' · ')
+    const outputs = top(out.byTool)
+    const toolRow = outputs === '' ? null : (
       <Text wrap="truncate-end">
-        <Text color={SECONDARY}>{'output '}</Text>
-        {byTool.slice(0, TOP_TOOLS).map(([name, t], i) => `${i === 0 ? '' : ' · '}${name} ${tokens(t.tokens)}×${t.calls}`).join('')}
+        <Text color={SECONDARY}>{rowLabel('output')}</Text>
+        {outputs}
       </Text>
     )
-    const biggest = out.biggest === null || out.biggest.tokens < 1000 ? null : (
+    const wrote = top(out.written)
+    const writtenRow = wrote === '' ? null : (
       <Text wrap="truncate-end">
-        <Text color={out.biggest.tokens >= 10_000 ? AMBER : SECONDARY}>{'↯ max   '}</Text>
-        {`${out.biggest.tool}${out.biggest.label === '' ? '' : ` ${clip(out.biggest.label, 28)}`} ${tokens(out.biggest.tokens)}`}
+        <Text color={SECONDARY}>{rowLabel('scritto')}</Text>
+        {wrote}
+      </Text>
+    )
+    // Each output still in the context is sent again with every request since it arrived.
+    const weighed = out.live
+      .map(o => ({ ...o, resent: Math.max(0, out.requests - o.at) }))
+      .map(o => ({ ...o, weight: o.tokens * o.resent }))
+      .filter(o => o.weight > 0)
+    const heaviest = weighed.reduce<(typeof weighed)[number] | undefined>((max, o) => (max === undefined || o.weight > max.weight ? o : max), undefined)
+    const totalWeight = weighed.reduce((n, o) => n + o.weight, 0)
+    const weightRow = heaviest === undefined || heaviest.weight < 10_000 ? null : (
+      <Text wrap="truncate-end">
+        <Text color={heaviest.weight >= 1_000_000 ? AMBER : SECONDARY}>{rowLabel('↯ peso')}</Text>
+        {`${heaviest.tool}${heaviest.label === '' ? '' : ` ${clip(heaviest.label, 22)}`} ${tokens(heaviest.tokens)} ×${heaviest.resent} ≈${tokens(heaviest.weight)}`}
+        <Text color={SECONDARY}>{weighed.length > 1 ? ` · tutti ≈${tokens(totalWeight)}` : ''}</Text>
       </Text>
     )
     const rereads = Object.entries(out.reads).filter(([, n]) => n >= REREAD_AT).sort((a, b) => b[1] - a[1])
     const rereadRow = rereads.length === 0 ? null : (
       <Text wrap="truncate-end">
-        <Text color={AMBER}>{'⟳ riletti '}</Text>
+        <Text color={AMBER}>{rowLabel('⟳ riletti')}</Text>
         {rereads.slice(0, TOP_REREADS).map(([p, n]) => `${baseName(p)} ×${n}`).join(' · ')}
       </Text>
     )
     const mcp = shape === null ? [] : shape.mcp
     const mcpRow = mcp.length === 0 ? null : (
       <Text wrap="truncate-end">
-        <Text color={SECONDARY}>{'MCP    '}</Text>
+        <Text color={SECONDARY}>{rowLabel('MCP')}</Text>
         {mcp.slice(0, 2).map(s => `${s.server} ${tokens(s.tokens)}`).join(' · ')}
         <Text color={SECONDARY}>{mcp.length > 2 ? ` · +${mcp.length - 2}` : ''}</Text>
       </Text>
     )
-    const spending = [toolRow, biggest, rereadRow, mcpRow].filter(r => r !== null)
+    // The trace: the context at the end of each turn, one cell a turn, a compaction in violet.
+    const history = spent.history.slice(-Math.max(1, width - ROW_LABEL - 8))
+    let traceRow = null
+    if (history.length >= 2) {
+      const runs: StripCell[] = []
+      for (const turn of history) {
+        const ratio = window > 0 ? turn.ctx / window : 0
+        const cell = {
+          char: SPARK[clamp(Math.floor(ratio * SPARK.length), 0, SPARK.length - 1)] as string,
+          color: turn.compacted ? '#B39DDB' : threshold(ratio * 100),
+        }
+        const prev = runs[runs.length - 1]
+        if (prev !== undefined && prev.color === cell.color) prev.char += cell.char
+        else runs.push(cell)
+      }
+      const delta = (history[history.length - 1]?.ctx ?? 0) - (history[history.length - 2]?.ctx ?? 0)
+      traceRow = (
+        <Text wrap="truncate-end">
+          <Text color={SECONDARY}>{rowLabel('turni')}</Text>
+          {runs.map(r => <Text color={r.color}>{r.char}</Text>)}
+          <Text color={delta >= 20_000 ? AMBER : SECONDARY}>{` ${delta >= 0 ? '+' : '−'}${tokens(Math.abs(delta))}`}</Text>
+        </Text>
+      )
+    }
+    const spending = [traceRow, toolRow, writtenRow, weightRow, rereadRow, mcpRow].filter(r => r !== null)
 
     // Subagents: as many finished ones as the pane has rows left for.
     const fixedRows = 2 + (doneRow ? 1 : 0) + 2 + limits.length + 2 + 2 + (legend ? 1 : 0) + (cacheBar ? 1 : 0) + (cacheClock ? 1 : 0)
