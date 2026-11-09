@@ -85,7 +85,7 @@ test('contesto: barra e token', async ($, on) => {
   for (const surface of SURFACES) {
     const ui = await $.ui.mount({ ...PANE, surface })
     expect((await ui.find({ type: 'Text', text: /^ctx/ }))?.text).toBe(`ctx   ${'━'.repeat(24)}${'─'.repeat(6)} 80% 160k/200k`)
-    expect((await ui.find({ type: 'Text', text: /\$$/ }))?.text).toBe('0.50 $')
+    expect((await ui.find({ type: 'Text', text: /\$$/ }))?.text).toBe('totale   0.50 $')
     await ui.unmount()
   }
 })
@@ -119,9 +119,10 @@ test('contesto: barra divisa per categoria con legenda e MCP', async ($, on) => 
   for (const surface of SURFACES) {
     const ui = await $.ui.mount({ ...PANE, surface })
     expect((await ui.find({ type: 'Text', text: /^ctx/ }))?.text).toBe(`ctx   ${'━'.repeat(15)}${'─'.repeat(15)} 50% 100k/200k`)
-    expect((await ui.find({ type: 'Text', text: /■/ }))?.text).toBe('      ■ messaggi 60k ■ tool 30k ■ MCP 10k ')
-    // Only schemas inside the window count.
-    expect((await ui.find({ type: 'Text', text: /^MCP/ }))?.text).toBe('MCP    Gmail 6k · Drive 4k')
+    expect((await ui.find({ type: 'Text', text: /■/ }))?.text).toBe('      ■ messaggi 60k   30%')
+    // Only schemas inside the window count; they sit in the token tab.
+    await ui.press({ key: 'tab-token' })
+    expect((await ui.find({ type: 'Text', text: /^MCP/ }))?.text).toBe('MCP      Gmail  6k')
     await ui.unmount()
   }
 })
@@ -239,20 +240,20 @@ test('cache: hit rate, ultimo turno e countdown fino alla scadenza', async ($, o
 
   for (const surface of SURFACES) {
     const ui = await $.ui.mount({ ...PANE, surface })
-    expect((await ui.find({ type: 'Text', text: /^cache/ }))?.text).toBe(`cache ${'━'.repeat(27)}${'─'.repeat(3)} 90% hit · 90k letti`)
-    expect((await ui.find({ type: 'Text', text: /^turno/ }))?.text).toBe('turno ↓100k ↑1k · cache 90% · +0.12 $')
-    expect((await ui.find({ type: 'Text', text: /cache calda/ }))?.text).toBe('      ◷ cache calda ancora 5:00')
+    expect((await ui.find({ type: 'Text', text: /^cache/ }))?.text).toBe(`cache    ${'━'.repeat(24)}${'─'.repeat(3)} 90% hit · 90k letti`)
+    expect((await ui.find({ type: 'Text', text: /^turno/ }))?.text).toBe('turno    +0.12 $  ↓100k ↑1k · cache 90%')
+    expect((await ui.find({ type: 'Text', text: /cache calda/ }))?.text).toBe('         ◷ cache calda ancora 5:00')
     await ui.unmount()
   }
 
   await clock.advance(4 * 60_000 + 30_000)
   let ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect((await ui.find({ type: 'Text', text: /cache calda/ }))?.text).toBe('      ◷ cache calda ancora 0:30')
+  expect((await ui.find({ type: 'Text', text: /cache calda/ }))?.text).toBe('         ◷ cache calda ancora 0:30')
   await ui.unmount()
 
   await clock.advance(60_000)
   ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect((await ui.find({ type: 'Text', text: /scaduta/ }))?.text).toBe('      ⚠ cache scaduta: il prossimo turno riscrive ~92k')
+  expect((await ui.find({ type: 'Text', text: /scaduta/ }))?.text).toBe('         ⚠ cache scaduta: il prossimo turno riscrive ~92k')
   await ui.unmount()
 })
 
@@ -266,7 +267,7 @@ test('cache: durata di un\'ora dalle opzioni', { options: { cacheTtl: '1h' } }, 
   await $.turn.complete(closed('ok', undefined, spent(10, 10, 1_000, 0)))
   await clock.advance(30 * 60_000)
   const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
-  expect((await ui.find({ type: 'Text', text: /cache calda/ }))?.text).toBe('      ◷ cache calda ancora 30:00')
+  expect((await ui.find({ type: 'Text', text: /cache calda/ }))?.text).toBe('         ◷ cache calda ancora 30:00')
   await ui.unmount()
 })
 
@@ -286,9 +287,31 @@ test('dove vanno i token: output dei tool, il più grosso e i file riletti', asy
   for (const surface of SURFACES) {
     const ui = await $.ui.mount({ ...PANE, surface })
     expect(await ui.find({ type: 'Text', text: /Dove vanno i token/ })).toBeDefined()
-    expect((await ui.find({ type: 'Text', text: /^output/ }))?.text).toBe('output Bash 12k×1 · Read 5k×5 · Grep 100×1')
-    expect((await ui.find({ type: 'Text', text: /^↯/ }))?.text).toBe('↯ max   Bash npm test -- --reporter verb… 12k')
-    expect((await ui.find({ type: 'Text', text: /^⟳/ }))?.text).toBe('⟳ riletti register.tsx ×4')
+    await ui.press({ key: 'tab-token' })
+    expect((await ui.find({ type: 'Text', text: /^output/ }))?.text).toBe('output   Bash  12k  ×1')
+    expect((await ui.find({ type: 'Text', text: /^max/ }))?.text).toBe('max      Bash npm test -- --reporter verb…  12k')
+    expect((await ui.find({ type: 'Text', text: /^riletti/ }))?.text).toBe('riletti  register.tsx  ×4')
+    await ui.unmount()
+  }
+})
+
+test('sotto-schede: costo e cache di default, i token con la scheda 2', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  host(on)
+  on('session.usage', () => ({ value: usage() }))
+  on('agent.list', () => ({ value: [] }))
+  on('tool.call', () => ({ result: {}, text: 'x'.repeat(4_000) }))
+  await $.tool.call({ tool: 'Bash', command: 'ls' })
+
+  for (const surface of SURFACES) {
+    const ui = await $.ui.mount({ ...PANE, surface })
+    expect(await ui.find({ type: 'Text', text: /^totale/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^output/ })).toBeUndefined()
+    await ui.press({ key: 'tab-token' })
+    expect(await ui.find({ type: 'Text', text: /^output/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^totale/ })).toBeUndefined()
+    await ui.press({ key: 'tab-costo' })
+    expect(await ui.find({ type: 'Text', text: /^totale/ })).toBeDefined()
     await ui.unmount()
   }
 })
@@ -396,7 +419,7 @@ test('intestazione: lo spinner gira mentre il turno principale lavora', async ($
     const text = (await ui.find({ type: 'Text', text: /⎇ main/ }))?.text ?? ''
     expect(text).toMatch(/^[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] ⎇ main$/)
     frames.add(text)
-    expect((await ui.find({ type: 'Text', text: /cache in uso/ }))?.text).toMatch(new RegExp(`^ {6}${ORBIT} cache in uso$`))
+    expect((await ui.find({ type: 'Text', text: /cache in uso/ }))?.text).toMatch(new RegExp(`^ {9}${ORBIT} cache in uso$`))
     await ui.unmount()
     await clock.advance(120)
   }
@@ -493,9 +516,8 @@ test('subagent: attivi prima, terminati quanti ne entrano', async ($, on) => {
   // A short pane keeps everything in view: fewer finished ones.
   ui = await $.ui.mount({ ...PANE, surface: 'terminal', props: { ...PANE.props, scroll: { offset: 0, bodyRows: 14 } } })
   expect(await ui.find({ type: 'Text', text: /task w$/ })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: /task d7$/ })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: /task d6$/ })).toBeUndefined()
-  expect((await ui.find({ type: 'Text', text: /terminati/ }))?.text).toBe('+6 terminati')
+  expect(await ui.find({ type: 'Text', text: /task d7$/ })).toBeUndefined()
+  expect((await ui.find({ type: 'Text', text: /terminati/ }))?.text).toBe('+7 terminati')
   await ui.unmount()
 })
 

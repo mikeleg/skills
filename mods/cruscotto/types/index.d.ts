@@ -73,6 +73,8 @@ declare module 'claude-code' {
       tools: Shaped<ToolLedger>
       context: Shaped<ContextShape | null>
       done: Shaped<DoneInfo | null>
+      /** The sub-tab shown under Sessione: the cost and cache, or where the tokens go. */
+      subTab: 'costo' | 'token'
     }
   }
 }
