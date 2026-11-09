@@ -1,0 +1,198 @@
+---
+name: workspace-setup
+description: Set up a development workspace for working with a coding agent - code repo, docs wiki repo, reference folder, run/debug config and agent instructions - on Azure DevOps, GitHub or local only, for any stack. Use when the user wants to start a new project, set up or initialize a workspace or repo, onboard an existing repo for agent work, or says "prepare the repo", "set up the project", "init the workspace".
+---
+
+# Workspace setup
+
+Take an empty folder (or an existing project) to a workspace an agent can work in from the first session: code and docs in separate repos, real build/test/run commands written down, a branch + PR flow, and a place for open questions. The skill assumes no language or framework.
+
+Speak the user's language in conversation. Write files in English unless the user asks otherwise.
+
+Rules that hold for the whole skill:
+
+- **Adapt, don't copy.** The examples below are shapes; use the project's real names, stack and commands.
+- **Don't ask what this skill already decides.** The workspace layout, the branch + PR flow, the "Proposed change" convention for docs, port + mock for integrations, and the 3-line preamble are applied, not debated.
+- **Don't invent.** No made-up build commands, package names, registries or URLs. If the user doesn't know, it goes in `open-questions.md` (step 6), not into a guess.
+- **Confirm external or hard-to-undo actions one by one:** creating remote repos, branch policies, push, merge, deletes.
+- **Never print tokens or credentials, never write them to a file.**
+- **Commit and push only when asked.**
+
+## 0. Look around first (silently)
+
+1. `pwd` and the contents of the current folder.
+2. If the current folder is itself a git repo, the user probably opened the code repo instead of the workspace container. Stop and propose: create the container one level up and move or clone the repo into `app/`. Move nothing without confirmation.
+3. Do `app/`, `wiki/`, `reference/`, `.vscode/`, `CLAUDE.md` already exist? Are they git repos? With which remote host (`dev.azure.com` / `visualstudio.com` → Azure DevOps, `github.com` → GitHub)?
+4. Which CLIs are available: `git`, `az` (+ `azure-devops` extension), `gh`.
+5. The stack already in `app/`, if any: recognise it from build files, manifests and the installed toolchain, without assuming one.
+
+Install nothing without asking. Use what you found to pre-fill the answers below; never ask what you already know.
+
+## 1. Questions (one round, with AskUserQuestion)
+
+First round, at most 4 questions, recommended option first when there is one:
+
+1. **Where does the project live?** Azure DevOps · GitHub · Local only (no remote for now).
+2. **New or existing?** New (create repos) · Existing (clone or attach repos that already exist).
+3. **Stack:** only if step 0 didn't recognise it. Backend and frontend language/framework, free answer.
+4. **Testing on external devices?** (mobile app, LAN, hotspot) Yes · No. Decides whether `launch.json` needs network scenarios (step 5).
+
+Second round, only what the chosen provider needs:
+
+- Azure DevOps: organization, project, app repo name, wiki repo name (default `<app>-wiki`).
+- GitHub: owner (user or org), app repo name, visibility, wiki repo name (default `<app>-wiki`).
+- Internal packages or templates: is there an in-house library, template or starter for this stack? If yes: name, registry/feed, version. If the user doesn't know, it's an open question (Architecture section). Don't guess package names or feeds.
+- Existing: URLs of the repos to clone, if step 0 didn't find them.
+
+Then show the **3-line preamble** and wait for confirmation:
+
+- **Goal** – e.g. "Workspace `<name>` on Azure DevOps, stack `<stack>`, app + wiki as code wiki".
+- **Source of truth** – this skill + the answers just given.
+- **Definition of done** – local scaffolding complete; remote repos and policies only if confirmed; no push.
+
+## 2. Workspace layout
+
+```
+<workspace-root>/      ← opened in the IDE, NOT a git repo
+├── app/               ← code repo
+├── wiki/              ← docs repo (separate git)
+├── reference/         ← UI mocks, external docs, exports
+│   └── mock/current/  ← current version; older ones in mock/<YYYY-MM-DD>/
+├── .vscode/           ← tasks.json + launch.json with ${workspaceFolder}/app/... paths
+├── CLAUDE.md          ← local-only: map of the workspace and provider (step 7)
+└── open-questions.md  ← local-only until answers are validated (step 6)
+```
+
+`reference/` is a plain folder by default (it often holds heavy binaries). If the team wants to share it, propose a repo of its own, never inside `app/` or `wiki/`. When a new version of the mocks arrives, move `mock/current/` to `mock/<YYYY-MM-DD>/` first, then replace `current/`.
+
+## 3. Code repo (`app/`) by provider
+
+### Azure DevOps
+
+- Prerequisites: `az account show` works; `az devops configure --defaults organization=https://dev.azure.com/<org> project=<project>`.
+- New: `az repos create --name <app>` (confirm first) → `git clone` the returned URL into `app/`.
+- Existing: `git clone` into `app/`.
+- PR: `az repos pr create --source-branch <branch> --target-branch main --title ... --description ...`.
+- Protect `main` (confirm first, needs project admin):
+  `az repos policy approver-count create --repository-id <id> --branch main --minimum-approver-count 1 --creator-vote-counts false --allow-downvotes false --reset-on-source-push true --blocking true --enabled true`.
+  If it fails on permissions, write the rule as a convention in `app/CLAUDE.md` and move on.
+
+### GitHub
+
+- Prerequisites: `gh auth status` works.
+- New: `gh repo create <owner>/<app> --private` (confirm first) → clone into `app/`.
+- Existing: `gh repo clone <owner>/<app> app`.
+- PR: `gh pr create --base main --title ... --body ...`; review: `gh pr view --comments`, `gh pr merge`.
+- Protect `main`: branch protection or rulesets. On **private repos on the Free plan** they aren't available (the API answers 403/404): then the rule becomes a written convention in `app/CLAUDE.md`. Try only after confirmation.
+
+### Local only
+
+- `git init -b main` in `app/`.
+- No PRs: the flow is dedicated branch → diff review (`git diff main...<branch>`) → `git merge --no-ff` on explicit request.
+- Protect `main`: offer a local `pre-commit` hook that blocks direct commits on `main`. Say that hooks are not versioned.
+- Note in `app/CLAUDE.md` how to add a remote later without changing habits.
+
+In every case: a `.gitignore` for build output, dependencies, local device/IDE files and local-only documents.
+
+## 4. Docs repo (`wiki/`) by provider
+
+The wiki holds the domain and product docs the agent reads. Changes to agreed content go through branch + PR and follow the **Proposed change** convention: an agreed section is never rewritten in place; the change is added below it as a block
+
+```
+> **Proposed change** (<author>, <date>)
+> What: … · Why: … · Impact: …
+```
+
+and merged into the text only once approved. So the wiki needs a repo with branches and PRs:
+
+- **Azure DevOps:** a dedicated `<app>-wiki` repo published as a **code wiki** (`az devops wiki create --type codewiki --name <app>-wiki --repository <app>-wiki --mapped-path / --version main`, confirm first). Advise against the *project wiki* (`<Project>.wiki`): edits go straight to the branch, no PRs or policies. Remember: page order is set by a `.order` file per folder; dashes in file names become spaces in titles; diagrams use `::: mermaid`.
+- **GitHub:** a dedicated `<owner>/<app>-wiki` repo (markdown rendered by GitHub, PRs and reviews). Advise against GitHub's built-in wiki (`<repo>.wiki.git`): no PRs or reviews, flat structure. Diagrams in ```` ```mermaid ```` blocks.
+- **Local only:** `git init -b main` in `wiki/`.
+
+Create only a minimal skeleton: a Home page with the wiki's purpose, the Proposed change convention above, and an empty index. Writing the spec itself is not this skill's job.
+
+## 5. Run & debug
+
+`.vscode/` at the **workspace root**, never inside `app/`.
+
+- Generate `tasks.json` / `launch.json` only with real commands: read from the existing project (build files, manifests, scripts, `docker-compose.yml`…) or confirmed by the user. For a new project with no code yet, create the files with only the tasks you're sure of and log the rest in `open-questions.md`.
+- A compound task that starts all parts of the stack together; maintenance tasks (reset DB, logs, stop).
+- A `problemMatcher` with "server ready" detection for debugging.
+- With device testing: one scenario per network context (local, LAN, hotspot). Never assume IPs: ask or detect, and write them as values to verify.
+
+## 6. Internal packages, integrations and open questions
+
+- **Internal packages/templates:** if one exists for the chosen stack, configure it instead of rewriting the wiring from scratch (registry/feed in the package manager's config file, no credentials in the file: use the registry's own auth mechanism). If name, feed or version are missing, don't proceed on that point: log an open question.
+- **External integrations:** for each one, a port (interface) + a mock implementation registered by default, so the app runs and tests without the real system. Questions for the third party go in `open-questions.md`, grouped by integration operation.
+
+### The open questions file
+
+Create `<workspace-root>/open-questions.md` if it doesn't exist (if it does, append, never rewrite). It sits at the root, which is not a git repo, so it stays local-only until answers are validated.
+
+```
+# Open questions – <project>
+
+> Local-only until validated. When an answer is validated, it moves into the wiki
+> or CLAUDE.md and the entry goes to "Closed".
+
+## External integrations
+### <System> – <Operation>
+| ID | Question | Why it blocks | Who answers | Status | Answer |
+|---|---|---|---|---|---|
+
+## Product
+## UX
+## Architecture
+## Test
+<!-- same table; IDs PM-nn, UX-nn, ARC-nn, QA-nn; integrations INT-nn -->
+
+## Closed
+| ID | Question | Answer | Validated by / on | Recorded in |
+|---|---|---|---|---|
+```
+
+Statuses: *Open* → *Sent* → *Answer to validate* → *Validated*. Third-party questions always go under External integrations, grouped by operation. Open points from the setup itself (internal packages/feeds, network IPs, policies that couldn't be applied) go here with an ID, not only in the final summary.
+
+## 7. Instructions for the agent
+
+**`app/CLAUDE.md` (versioned)** – truthful, nothing aspirational:
+
+- Architecture and stack *decided* (what is only scaffolded is written as such).
+- Real build, test, typecheck and run commands. `implement` and other skills read them from here.
+- Provider and flow: dedicated branch, PR with context / what changes / how to verify, the provider's PR commands, the `main` protection rule (applied, or convention).
+- Backlog: `docs/backlog/<feature>/` (scope.md + backlog.md, written by `shape-it`).
+- Security: never print tokens or put them in files; confirm before push, merge, sending, deleting.
+- The 3-line preamble ritual (goal, source of truth, definition of done) before non-trivial work, and the rule "if sources disagree, surface it and ask".
+- Wiki: the Proposed change convention; wiki commits only on request.
+- Open questions: in `../open-questions.md` (local-only), format from step 6.
+
+**`<workspace-root>/CLAUDE.md` (local-only)** – short, read in every session opened on the root:
+
+```
+# Workspace <name>
+- Provider: <azure-devops | github | local>  (org/project or owner)
+- Stack: <decided languages/frameworks>
+- app/  → <remote url or "local">
+- wiki/ → <remote url or "local">  · type: <code wiki | markdown repo | local>
+- reference/ → current mocks in reference/mock/current/
+- Open questions: open-questions.md (local-only)
+- Project instructions: app/CLAUDE.md
+```
+
+Facts that can't be derived from the code (decisions, constraints, conventions) go in CLAUDE.md; don't duplicate them elsewhere.
+
+## 8. Close
+
+1. Show the checklist, one line per item: ✅ done · ⏳ convention / to complete · ❌ not applicable, with a one-line reason for every ⏳ and ❌.
+   - Workspace root is not a git repo; `app/`, `wiki/`, `reference/` exist
+   - `app/` repo with remote (or local), `.gitignore`
+   - `main` protected (policy, ruleset, hook, or written convention)
+   - `wiki/` repo with branches + PRs, Home page with the Proposed change convention
+   - `.vscode/` at the root with real tasks and launch configs
+   - Internal packages configured, or logged as open questions
+   - Integrations behind a port + mock
+   - `app/CLAUDE.md` and root `CLAUDE.md` written, with real commands
+   - `open-questions.md` created, with the setup's open points
+2. List the open points with their ID from `open-questions.md`.
+3. Ask whether to commit (and push, if there's a remote) the scaffolding of `app/` and `wiki/`: one commit per repo, descriptive message. Never without confirmation.
+4. Propose the next step: `shape-it` to turn the first feature or MVP into a backlog.
