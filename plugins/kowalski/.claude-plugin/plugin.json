@@ -1,0 +1,10 @@
+{
+  "name": "kowalski",
+  "version": "0.1.0",
+  "description": "Kowalski, analysis! Analyzes a ticket, issue or bug report (Azure DevOps, GitHub, Jira or pasted text) and finds where the problem is (/kowalski:analisi).",
+  "license": "MIT",
+  "author": {
+    "name": "mikeleg"
+  },
+  "repository": "https://github.com/mikeleg/skills"
+}
