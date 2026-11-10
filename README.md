@@ -1,6 +1,70 @@
 # skills
 
-Agent skills by mikeleg, installable with [skills.sh](https://skills.sh) or as a Claude Code plugin.
+Agent skills and Claude Code mods by mikeleg. The skills cover the path from an idea to committed code, plus a few work and content chores. The mods change Claude Code itself.
+
+- [Install](#install)
+- [How the development skills fit together](#how-the-development-skills-fit-together)
+- [Skills](#skills)
+- [Agents](#agents)
+- [Mods](#mods)
+- [Repository layout](#repository-layout)
+- [Contributing and releasing](#contributing-and-releasing)
+
+## Install
+
+### Claude Code plugin
+
+```
+/plugin marketplace add mikeleg/skills
+/plugin install mikeleg-skills@mikeleg
+```
+
+This installs every skill. Installed as a plugin, the skills are namespaced: `/mikeleg-skills:shape-it`, `/mikeleg-skills:implement` and so on. Claude also picks them up on its own when the request matches their description.
+
+To get a new version:
+
+```
+/plugin marketplace update mikeleg
+```
+
+### skills.sh
+
+Works with Claude Code and the other agents [skills.sh](https://skills.sh) supports.
+
+```bash
+npx skills add mikeleg/skills                    # all skills
+npx skills add mikeleg/skills --skill shape-it   # a single skill
+```
+
+### Agents and mods
+
+Each agent and each mod is its own plugin in the same marketplace. At the prompt of a Claude Code terminal session:
+
+```
+/plugin install kowalski --marketplace mikeleg/skills
+/plugin install cruscotto --marketplace mikeleg/skills
+```
+
+Or from a shell:
+
+```bash
+claude plugin install kowalski --marketplace mikeleg/skills
+claude plugin install cruscotto --marketplace mikeleg/skills
+```
+
+## How the development skills fit together
+
+```
+workspace-setup  →  shape-it  →  implement  →  (bug?) tdd
+   the repo          the backlog    one slice       one fix
+```
+
+1. `workspace-setup` prepares the repo, the wiki and `CLAUDE.md` once per project.
+2. `shape-it` turns an idea into `docs/backlog/<feature>/scope.md` and `backlog.md`: vertical slices with acceptance criteria, optionally published as GitHub Issues or Azure DevOps work items.
+3. `implement` takes one slice (`implement S1`) and turns its acceptance criteria into tests, code, a review and a commit.
+4. `tdd` fixes a bug test-first. It runs only when you call `/tdd`.
+
+Each skill also works on its own: `implement` accepts any ticket or spec, `shape-it` works in a chat without a codebase.
 
 ## Skills
 
@@ -17,8 +81,8 @@ Agent skills by mikeleg, installable with [skills.sh](https://skills.sh) or as a
 
 | Skill | What it does | Requirements |
 | --- | --- | --- |
-| `log-task-hours` | Logs actual hours on an Azure DevOps work item as a child Task, inferring ticket, hours and title from your Claude Code sessions. | Azure CLI with the `azure-devops` extension and a default organization set with `az devops configure`. Claude Code (reads the `~/.claude/projects` session logs). |
-| `reply-draft` | Drafts a reply to a customer email as an Outlook draft (never sent), using the thread, your past replies and the current work as context. | Microsoft 365 connector (Outlook). Optional: Azure CLI to read work items. |
+| `log-task-hours` | Logs actual hours on an Azure DevOps work item as a child Task, inferring ticket, hours and title from your Claude Code sessions. Call it with `/log-task-hours [ticket-id]`. Written in Italian. | Azure CLI with the `azure-devops` extension, Python. Claude Code (reads the `~/.claude/projects` session logs). The organization is set to `engagelabsit` in the skill: change it for yours. |
+| `reply-draft` | Drafts a reply to a customer email as an Outlook draft (never sent), using the thread, your past replies and the current work as context. Call it with `/reply-draft [sender, subject or work item id]`. | Microsoft 365 connector (Outlook). Optional: Azure CLI to read work items. |
 
 ### Content
 
@@ -30,66 +94,61 @@ Agent skills by mikeleg, installable with [skills.sh](https://skills.sh) or as a
 
 ### kowalski
 
-"Kowalski, analysis!" Give him a ticket, an issue or a bug report and he cross-checks wiki, code, git history and the database (read-only) to find where the problem is and propose the minimal fix. Call him with `/kowalski:analisi 15307`, or just by name: `kowalski, analisi del 15307`.
+"Kowalski, analysis!" Give him a ticket, an issue or a bug report and he cross-checks wiki, code, git history and the database (read-only) to find where the problem is and propose the minimal fix. The answer is written for a person: short, with a diagram only when it helps.
+
+Call him with `/kowalski:analisi 15307`, or just by name: `kowalski, analisi del 15307`.
 
 Requirements: none to analyze pasted text. To read tickets: Azure CLI with the `azure-devops` extension (Azure DevOps), `gh` (GitHub), or a connector for other trackers.
 
-At the prompt of a Claude Code terminal session:
-
-```
-/plugin install kowalski --marketplace mikeleg/skills
-```
-
-From a shell:
-
-```bash
-claude plugin install kowalski --marketplace mikeleg/skills
-```
-
 ## Mods
 
-| Mod | What it does |
-| --- | --- |
-| `cruscotto` | Side pane in Claude Code, kept to one tab: usage limits, context split by category, prompt-cache hit rate and countdown, where your tokens go in the main thread (a turn-by-turn trace of the context, tool outputs, what the model writes, the outputs that weigh most on every request, files read again, MCP schemas) and subagents with their tokens. A light runs back and forth along a strip while the work goes on and turns solid green when it is done; it also tells you when the work is done (a band in the pane, a toast, a system notification and a chime for longer turns). Open it with `/cruscotto`. |
+### cruscotto
 
-## Install
+A side pane in Claude Code, kept to one tab. It shows:
 
-### skills.sh
+- usage limits and the context split by category
+- prompt-cache hit rate and the countdown before the cache goes cold
+- where your tokens go in the main thread: a turn-by-turn trace of the context, tool outputs, what the model writes, the outputs that weigh most on every request, files read again, MCP schemas
+- subagents with their tokens
 
-```bash
-npx skills add mikeleg/skills
-```
+Rows cut short show the full text in a card when you hover over them.
 
-To install a single skill:
+A light runs back and forth along a strip while the work goes on and turns solid green when it's done. When a turn ends you get a band in the pane and, for longer turns, a toast, a system notification and a chime.
 
-```bash
-npx skills add mikeleg/skills --skill shape-it
-```
+Open it with `/cruscotto`. Settings, from the plugin's configuration in `/plugin`:
 
-### Claude Code plugin
+| Setting | Values | Default |
+| --- | --- | --- |
+| `cacheTtl` | How long the prompt cache stays warm after a turn: `5m` or `1h` | `5m` |
+| `notifyAfter` | From which turn length to send toast, notification and sound: `sempre`, `30s`, `2m`, `mai` | `30s` |
+| `sound` | Play the end-of-work chime | `true` |
 
-```
-/plugin marketplace add mikeleg/skills
-/plugin install mikeleg-skills@mikeleg
-```
-
-### Mods
-
-At the prompt of a Claude Code terminal session:
-
-```
-/plugin install cruscotto --marketplace mikeleg/skills
-```
-
-From a shell:
-
-```bash
-claude plugin install cruscotto --marketplace mikeleg/skills
-```
+The pane's labels are in Italian.
 
 ## Repository layout
 
-Each skill lives in `skills/<category>/<name>/SKILL.md`, with categories `development`, `work` and `content`. Each mod lives in `mods/<name>/` as its own plugin, listed in `.claude-plugin/marketplace.json`.
+```
+.claude-plugin/
+  marketplace.json     # the mikeleg marketplace: mikeleg-skills + each mod
+  plugin.json          # the mikeleg-skills plugin
+skills/
+  development/         # workspace-setup, shape-it, implement, tdd
+  work/                # log-task-hours, reply-draft
+  content/             # video-prodotto
+plugins/
+  kowalski/            # a separate agent plugin: skills/analisi
+mods/
+  cruscotto/           # a separate plugin: hooks/register.tsx, tests, sounds
+```
+
+Each skill lives in `skills/<category>/<name>/SKILL.md`, with any reference files or scripts next to it.
+
+## Contributing and releasing
+
+- New skill: add `skills/<category>/<name>/SKILL.md` with `name` and `description` in the frontmatter, add a row to the tables above and list it in the `description` of `.claude-plugin/plugin.json` and `marketplace.json`.
+- New agent: add `plugins/<name>/` with its own `.claude-plugin/plugin.json`, its skills under `skills/` and an entry in `marketplace.json`.
+- New mod: add `mods/<name>/` with its own `.claude-plugin/plugin.json` and an entry in `marketplace.json`.
+- Release: bump `version` in `.claude-plugin/plugin.json` (or in the agent's or mod's `plugin.json`). Installed plugins update only when the version changes.
 
 ## License
 
