@@ -1,28 +1,28 @@
 ---
 name: log-task-hours
-description: Registra le ore effettive (Completed Work) su Azure DevOps creando un Task figlio del ticket, deducendo ticket, ore e titolo dal lavoro svolto con Claude. Usala SOLO quando l'utente chiede di inserire/segnare/registrare le ore (es. "segna le ore", "/log-task-hours", "/log-task-hours 15175").
-argument-hint: "[id-ticket]"
+description: Log the actual hours (Completed Work) on Azure DevOps by creating a child Task of the ticket, deducing ticket, hours and title from the work done with Claude. Use ONLY when the user asks to enter/log/record hours (e.g. "log my hours", "segna le ore", "/log-task-hours", "/log-task-hours 15175").
+argument-hint: "[ticket-id]"
 ---
 
-Registra le ore effettive su un ticket Azure DevOps (org `https://dev.azure.com/engagelabsit`, qualsiasi progetto). L'utente NON fornisce ore né titolo: li deduci tu.
+Log the actual hours on an Azure DevOps ticket (org `https://dev.azure.com/engagelabsit`, any project). The user does NOT provide hours or title: you deduce them.
 
-1. **Ticket**: da `$ARGUMENTS`; altrimenti dalla conversazione corrente, dal nome del branch o da cartelle tipo `Ticket-<id>`. Se restano più candidati o nessuno, chiedi quale (una domanda).
-2. **Padre**: `az boards work-item show --id <id> --org https://dev.azure.com/engagelabsit --expand relations -o json` → `System.TeamProject`, `System.AreaPath`, `System.IterationPath`, `System.Title`, figli (`System.LinkTypes.Hierarchy-Forward`).
-3. **Ore già registrate**: per ogni Task figlio leggi `Custom.Effectivedate` (o `System.CreatedDate` se assente); prendi la più recente come `<dal>`, per non contare due volte lo stesso lavoro.
-4. **Ore lavorate**: `python ~/.claude/skills/log-task-hours/active_session_time.py <id> [--dal <dal>]`. Somma il tempo attivo delle sessioni Claude Code che citano il ticket (pause >15 min escluse), arrotondato per eccesso a **multipli di 0.5** (minimo 0.5). Se TOTALE è 0, dillo e chiedi le ore.
-5. **Titolo** — scelto con le regole Clean Code sui nomi significativi:
-   - **rivela l'intento**: dice cosa è stato fatto e su cosa, senza bisogno di aprire il ticket (verbo/azione + oggetto di dominio: "Ripristino impianti LA RUSSA a mai rivalutati");
-   - **linguaggio di dominio**: usa i termini del ticket e del business (impianto, verifica, amministratore, rivalutazione ISTAT…), non dettagli tecnici superflui;
-   - **niente parole rumore o generiche**: vietati "fix", "varie", "lavoro", "attività", "modifiche", "ticket <id>";
-   - **specifico ma breve**: max ~60 caratteri, italiano, una sola cosa; se le sessioni coprono più attività, nomina quella prevalente.
-   Fonti: la conversazione corrente, i record `ai-title` e i messaggi utente delle sessioni elencate dallo script.
-6. **Riepilogo**: mostra in una riga `#<id> "<titolo padre>" → Task "<titolo>" <ore>h (<sessioni/fasce orarie>)` e procedi senza chiedere conferma.
-7. **Crea il Task** (stesso progetto/area/iteration del padre):
+1. **Ticket**: from `$ARGUMENTS`; otherwise from the current conversation, the branch name or folders like `Ticket-<id>`. If several candidates remain, or none, ask which one (a single question).
+2. **Parent**: `az boards work-item show --id <id> --org https://dev.azure.com/engagelabsit --expand relations -o json` → `System.TeamProject`, `System.AreaPath`, `System.IterationPath`, `System.Title`, children (`System.LinkTypes.Hierarchy-Forward`).
+3. **Hours already logged**: for each child Task read `Custom.Effectivedate` (or `System.CreatedDate` if missing); take the most recent as `<from>`, so the same work is not counted twice.
+4. **Hours worked**: `python "${CLAUDE_SKILL_DIR}/active_session_time.py" <id> [--dal <from>]`. It sums the active time of the Claude Code sessions that mention the ticket (pauses >15 min excluded), rounded up to **multiples of 0.5** (minimum 0.5). If TOTALE is 0, say so and ask for the hours.
+5. **Title** — chosen with the Clean Code rules for meaningful names:
+   - **reveals intent**: says what was done and on what, without having to open the ticket (verb/action + domain object: "Ripristino impianti LA RUSSA a mai rivalutati");
+   - **domain language**: use the terms of the ticket and of the business (impianto, verifica, amministratore, rivalutazione ISTAT…), not needless technical details;
+   - **no noise or generic words**: "fix", "varie", "lavoro", "attività", "modifiche", "ticket <id>" are forbidden;
+   - **specific but short**: max ~60 characters, written in Italian, a single thing; if the sessions cover several activities, name the predominant one.
+   Sources: the current conversation, the `ai-title` records and the user messages of the sessions listed by the script.
+6. **Summary**: show on one line `#<id> "<parent title>" → Task "<title>" <hours>h (<sessions/time ranges>)` and proceed without asking for confirmation.
+7. **Create the Task** (same project/area/iteration as the parent):
    ```
-   az boards work-item create --org https://dev.azure.com/engagelabsit --project "<TeamProject>" --type Task --title "<titolo>" --assigned-to michele.gatti@engagelabs.it --area "<AreaPath>" --iteration "<IterationPath>" --fields "Microsoft.VSTS.Scheduling.CompletedWork=<ore>" "Custom.Effectivedate=<ora corrente UTC, formato YYYY-MM-DDTHH:MM:SSZ>" -o json
+   az boards work-item create --org https://dev.azure.com/engagelabsit --project "<TeamProject>" --type Task --title "<title>" --assigned-to michele.gatti@engagelabs.it --area "<AreaPath>" --iteration "<IterationPath>" --fields "Microsoft.VSTS.Scheduling.CompletedWork=<hours>" "Custom.Effectivedate=<current UTC time, format YYYY-MM-DDTHH:MM:SSZ>" -o json
    ```
-   Se `Custom.Effectivedate` non esiste nel processo del progetto, riprova senza e segnalalo.
-8. **Collega e chiudi**: `az boards work-item relation add --id <nuovo> --relation-type parent --target-id <id> --org https://dev.azure.com/engagelabsit`, poi `az boards work-item update --id <nuovo> --state Done --org https://dev.azure.com/engagelabsit`.
-9. **Verifica**: rileggi il Task (`CompletedWork`, `Custom.Effectivedate`, `System.Parent`, `State`).
+   If `Custom.Effectivedate` does not exist in the project's process, retry without it and report it.
+8. **Link and close**: `az boards work-item relation add --id <new> --relation-type parent --target-id <id> --org https://dev.azure.com/engagelabsit`, then `az boards work-item update --id <new> --state Done --org https://dev.azure.com/engagelabsit`.
+9. **Verify**: re-read the Task (`CompletedWork`, `Custom.Effectivedate`, `System.Parent`, `State`).
 
-Output: una riga, es. `✅ Task #15345 "Analisi e fix rivalutazione ISTAT" → 2.5h su #15175 (Done)`. Non toccare il ticket padre.
+Output: one line, e.g. `✅ Task #15345 "Analisi e fix rivalutazione ISTAT" → 2.5h on #15175 (Done)`. Do not touch the parent ticket.
