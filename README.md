@@ -76,19 +76,20 @@ Each skill also works on its own: `implement` accepts any ticket or spec, `shape
 | `shape-it` | Turns a product idea, MVP or feature into a scoped plan and a backlog of vertical slices with acceptance criteria. Writes markdown in the repo and can publish it as tickets. | Optional: `gh` or `az` to publish the backlog to GitHub Issues or Azure DevOps Boards. |
 | `implement` | Implements a slice, spec or set of tickets test-first from its acceptance criteria, checks the result against the spec, simplifies it, reviews it with `/code-review`, guards the quality floor (no new suppressions, skipped tests or removed assertions) and commits. | Claude Code (uses the `/simplify` and `/code-review` skills when available). |
 | `tdd` | Fixes a bug test-first: writes a focused regression test that fails before the fix and passes after it, or the closest practical check when a test isn't worth it. Runs only when invoked explicitly. | None. |
+| `analyze` | Analyzes a ticket, issue or bug report (Azure DevOps, GitHub, Jira or pasted text): cross-checks docs/wiki, code, git history and the database (read-only) to find where the problem is and propose the minimal fix. The answer is short and written for a person. | None to analyze pasted text. To read tickets: Azure CLI with the `azure-devops` extension, `gh`, or a connector for other trackers. |
 
 ### Work
 
 | Skill | What it does | Requirements |
 | --- | --- | --- |
-| `log-task-hours` | Logs actual hours on an Azure DevOps work item as a child Task, inferring ticket, hours and title from your Claude Code sessions. Call it with `/log-task-hours [ticket-id]`. Written in Italian. | Azure CLI with the `azure-devops` extension, Python. Claude Code (reads the `~/.claude/projects` session logs). The organization is set to `engagelabsit` in the skill: change it for yours. |
+| `log-task-hours` | Logs actual hours on an Azure DevOps work item as a child Task, inferring ticket, hours and title from your Claude Code sessions. Call it with `/log-task-hours [ticket-id]`. | Azure CLI with the `azure-devops` extension, Python. Claude Code (reads the `~/.claude/projects` session logs). The organization is set to `engagelabsit` in the skill: change it for yours. |
 | `reply-draft` | Drafts a reply to a customer email as an Outlook draft (never sent), using the thread, your past replies and the current work as context. Call it with `/reply-draft [sender, subject or work item id]`. | Microsoft 365 connector (Outlook). Optional: Azure CLI to read work items. |
 
 ### Content
 
 | Skill | What it does | Requirements |
 | --- | --- | --- |
-| `video-prodotto` | Rules and recipes for building or revising a product promo video in Remotion: voice-over (Gemini TTS), music, highlights on app screenshots, CTA, sync and delivery checks. Written in Italian. | Node.js with Remotion, ffmpeg, Python. Optional: Gemini API key (`GEMINI_API_KEY`) for the voice, Claude in Chrome for screenshots. |
+| `product-video` | Rules and recipes for building or revising a product promo video in Remotion: voice-over (Gemini TTS), music, highlights on app screenshots, CTA, sync and delivery checks. | Node.js with Remotion, ffmpeg, Python. Optional: Gemini API key (`GEMINI_API_KEY`) for the voice, Claude in Chrome for screenshots. |
 
 ## Agents
 
@@ -98,7 +99,9 @@ Each skill also works on its own: `implement` accepts any ticket or spec, `shape
 
 Call him with `/kowalski:analisi 15307`, or just by name: `kowalski, analisi del 15307`.
 
-Requirements: none to analyze pasted text. To read tickets: Azure CLI with the `azure-devops` extension (Azure DevOps), `gh` (GitHub), or a connector for other trackers.
+His commands run the skills in this repo: `/kowalski:analisi` ([analyze](#development)), `/kowalski:implementa` ([implement](#development)), `/kowalski:email` ([reply-draft](#work)), `/kowalski:ore` ([log-task-hours](#work)), `/kowalski:video` ([product-video](#content)).
+
+Requirements: none to analyze pasted text. To read tickets: Azure CLI with the `azure-devops` extension (Azure DevOps), `gh` (GitHub), or a connector for other trackers. Those skills have their own requirements, listed in the tables above.
 
 ## Mods
 
@@ -129,14 +132,13 @@ The pane's labels are in Italian.
 
 ```
 .claude-plugin/
-  marketplace.json     # the mikeleg marketplace: mikeleg-skills + each mod
-  plugin.json          # the mikeleg-skills plugin
+  marketplace.json     # the mikeleg marketplace: defines mikeleg-skills and kowalski, lists each mod
 skills/
-  development/         # workspace-setup, shape-it, implement, tdd
+  development/         # workspace-setup, shape-it, implement, tdd, analyze
   work/                # log-task-hours, reply-draft
-  content/             # video-prodotto
+  content/             # product-video
 plugins/
-  kowalski/            # a separate agent plugin: skills/analisi
+  kowalski/            # skills: analisi, implementa, email, ore, video, each runs a skill from skills/
 mods/
   cruscotto/           # a separate plugin: hooks/register.tsx, tests, sounds
 ```
@@ -145,10 +147,10 @@ Each skill lives in `skills/<category>/<name>/SKILL.md`, with any reference file
 
 ## Contributing and releasing
 
-- New skill: add `skills/<category>/<name>/SKILL.md` with `name` and `description` in the frontmatter, add a row to the tables above and list it in the `description` of `.claude-plugin/plugin.json` and `marketplace.json`.
-- New agent: add `plugins/<name>/` with its own `.claude-plugin/plugin.json`, its skills under `skills/` and an entry in `marketplace.json`.
+- New skill: add `skills/<category>/<name>/SKILL.md` with `name` and `description` in the frontmatter, add a row to the tables above and list it in the `description` of the `mikeleg-skills` entry in `.claude-plugin/marketplace.json`.
+- New agent: add `plugins/<name>/skills/` and an entry in `marketplace.json` with `source: "./"` and its `skills` paths (they can include skills from `skills/`).
 - New mod: add `mods/<name>/` with its own `.claude-plugin/plugin.json` and an entry in `marketplace.json`.
-- Release: bump `version` in `.claude-plugin/plugin.json` (or in the agent's or mod's `plugin.json`). Installed plugins update only when the version changes.
+- Release: bump `version` in the plugin's `marketplace.json` entry (in the mod's `plugin.json` for mods), and changing a skill that kowalski wraps (analyze, implement, reply-draft, log-task-hours, product-video) needs a kowalski bump too. Installed plugins update only when the version changes.
 
 ## License
 
