@@ -99,7 +99,7 @@ Each skill also works on its own: `implement` accepts any ticket or spec, `shape
 
 Call him with `/kowalski:analisi 15307`, or just by name: `kowalski, analisi del 15307`.
 
-His commands run the skills in this repo: `/kowalski:analisi` ([analyze](#development)), `/kowalski:implementa` ([implement](#development)), `/kowalski:email` ([reply-draft](#work)), `/kowalski:ore` ([log-task-hours](#work)), `/kowalski:video` ([product-video](#content)).
+His commands run the skills in this repo: `/kowalski:pianifica` ([shape-it](#development)), `/kowalski:prepara` ([workspace-setup](#development)), `/kowalski:analisi` ([analyze](#development)), `/kowalski:implementa` ([implement](#development)), `/kowalski:email` ([reply-draft](#work)), `/kowalski:ore` ([log-task-hours](#work)), `/kowalski:video` ([product-video](#content)).
 
 Requirements: none to analyze pasted text. To read tickets: Azure CLI with the `azure-devops` extension (Azure DevOps), `gh` (GitHub), or a connector for other trackers. Those skills have their own requirements, listed in the tables above.
 
@@ -138,7 +138,7 @@ skills/
   work/                # log-task-hours, reply-draft
   content/             # product-video
 plugins/
-  kowalski/            # skills: analisi, implementa, email, ore, video, each runs a skill from skills/
+  kowalski/            # skills: pianifica, prepara, analisi, implementa, email, ore, video, each runs a skill from skills/
 mods/
   cruscotto/           # a separate plugin: hooks/register.tsx, tests, sounds
 ```
@@ -150,7 +150,7 @@ Each skill lives in `skills/<category>/<name>/SKILL.md`, with any reference file
 - New skill: add `skills/<category>/<name>/SKILL.md` with `name` and `description` in the frontmatter, add a row to the tables above and list it in the `description` of the `mikeleg-skills` entry in `.claude-plugin/marketplace.json`.
 - New agent: add `plugins/<name>/skills/` and an entry in `marketplace.json` with `source: "./"` and its `skills` paths (they can include skills from `skills/`).
 - New mod: add `mods/<name>/` with its own `.claude-plugin/plugin.json` and an entry in `marketplace.json`.
-- Release: bump `version` in the plugin's `marketplace.json` entry (in the mod's `plugin.json` for mods), and changing a skill that kowalski wraps (analyze, implement, reply-draft, log-task-hours, product-video) needs a kowalski bump too. Installed plugins update only when the version changes.
+- Release: bump `version` in the plugin's `marketplace.json` entry (in the mod's `plugin.json` for mods), and changing a skill that kowalski wraps (analyze, implement, reply-draft, log-task-hours, product-video, shape-it, workspace-setup) needs a kowalski bump too. Installed plugins update only when the version changes.
 
 ## License
 

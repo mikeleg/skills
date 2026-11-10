@@ -29,7 +29,7 @@
     {
       "name": "kowalski",
       "source": "./",
-      "description": "Kowalski, analysis! Analyzes a ticket, issue or bug report (Azure DevOps, GitHub, Jira or pasted text) and finds where the problem is (/kowalski:analisi). Also /kowalski:implementa (implement), /kowalski:email (reply-draft), /kowalski:ore (log-task-hours) and /kowalski:video (product-video).",
+      "description": "Kowalski, analysis! Analyzes a ticket, issue or bug report (Azure DevOps, GitHub, Jira or pasted text) and finds where the problem is (/kowalski:analisi). Also /kowalski:pianifica (shape-it), /kowalski:prepara (workspace-setup), /kowalski:implementa (implement), /kowalski:email (reply-draft), /kowalski:ore (log-task-hours) and /kowalski:video (product-video).",
       "version": "0.2.0",
       "license": "MIT",
       "author": {
@@ -37,6 +37,8 @@
       },
       "repository": "https://github.com/mikeleg/skills",
       "skills": [
+        "./plugins/kowalski/skills/pianifica",
+        "./plugins/kowalski/skills/prepara",
         "./plugins/kowalski/skills/analisi",
         "./plugins/kowalski/skills/implementa",
         "./plugins/kowalski/skills/email",
