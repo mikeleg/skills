@@ -26,6 +26,26 @@ Agent skills by mikeleg, installable with [skills.sh](https://skills.sh) or as a
 | --- | --- | --- |
 | `video-prodotto` | Rules and recipes for building or revising a product promo video in Remotion: voice-over (Gemini TTS), music, highlights on app screenshots, CTA, sync and delivery checks. Written in Italian. | Node.js with Remotion, ffmpeg, Python. Optional: Gemini API key (`GEMINI_API_KEY`) for the voice, Claude in Chrome for screenshots. |
 
+## Agents
+
+### kowalski
+
+"Kowalski, analysis!" Give him a ticket, an issue or a bug report and he cross-checks wiki, code, git history and the database (read-only) to find where the problem is and propose the minimal fix. Call him with `/kowalski:analisi 15307`, or just by name: `kowalski, analisi del 15307`.
+
+Requirements: none to analyze pasted text. To read tickets: Azure CLI with the `azure-devops` extension (Azure DevOps), `gh` (GitHub), or a connector for other trackers.
+
+At the prompt of a Claude Code terminal session:
+
+```
+/plugin install kowalski --marketplace mikeleg/skills
+```
+
+From a shell:
+
+```bash
+claude plugin install kowalski --marketplace mikeleg/skills
+```
+
 ## Mods
 
 | Mod | What it does |

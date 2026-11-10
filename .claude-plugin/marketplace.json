@@ -14,6 +14,11 @@
       "name": "cruscotto",
       "source": "./mods/cruscotto",
       "description": "Side pane with usage limits, context by category, prompt cache, where the tokens go and subagents (/cruscotto)."
+    },
+    {
+      "name": "kowalski",
+      "source": "./plugins/kowalski",
+      "description": "Kowalski, analysis! Analyzes a ticket, issue or bug report (Azure DevOps, GitHub, Jira or pasted text) and finds where the problem is (/kowalski:analisi)."
     }
   ]
 }
