@@ -8,8 +8,8 @@
     {
       "name": "mikeleg-skills",
       "source": "./",
-      "description": "Agent skills by mikeleg: workspace-setup, shape-it, implement, tdd, codebase-design, analyze, log-task-hours, reply-draft, product-video",
-      "version": "0.6.0",
+      "description": "Agent skills by mikeleg: workspace-setup, shape-it, implement, tdd, codebase-design, kets-review, analyze, log-task-hours, reply-draft, product-video",
+      "version": "0.7.0",
       "license": "MIT",
       "author": {
         "name": "mikeleg"
