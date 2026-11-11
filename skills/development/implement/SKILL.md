@@ -11,6 +11,7 @@ Turn one unit of agreed work (a slice from `docs/backlog/<feature>/backlog.md`, 
 
 - Find the work: the slice/ticket/spec the user named. If it came from shape-it, also read `scope.md` (non-goals matter for the spec check).
 - Read `CLAUDE.md`/`AGENTS.md` and the project's test and typecheck commands. Never ask what you can read.
+- Note how the code is organized. In a new repo, or one already organized by feature, the work is built as a vertical slice (see step 2). In a repo organized by technical layer (Controllers/Services/Repositories), follow the existing structure and say so in the final report.
 - Record the starting point: run `git rev-parse HEAD` and note the SHA. Every check below diffs against it. Shell variables don't survive between commands, so write the SHA out in each command (shown as `<base>` below).
 
 ## 1. Seams (the one checkpoint)
@@ -18,23 +19,20 @@ Turn one unit of agreed work (a slice from `docs/backlog/<feature>/backlog.md`, 
 A seam is the public interface a test goes through: an HTTP endpoint, a command, a module's exported function, a component's rendered output. Tests live at seams, never against internals.
 
 - If the slice lists **Seams** (shape-it writes them), they are already agreed: map each acceptance criterion to a seam and go.
-- If it doesn't, propose them in one message: for each acceptance criterion, the seam and the test you will write there, with one line on what it catches and what it misses. Wait for the user's ok. This is the only stop in the skill.
+- If it doesn't, propose them in one message: for each acceptance criterion, the seam and the test you will write there, with one line on what it catches and what it misses. Wait for the user's ok. This is the only planned stop; the other one is a slice that duplicates another (see the tdd skill).
+- If where a seam belongs, or how deep the module behind it should be, is unclear, use the `codebase-design` skill for the vocabulary and the options.
 
 ## 2. Build it test-first, one criterion at a time
 
-For each acceptance criterion, in order:
+Read `${CLAUDE_SKILL_DIR}/../tdd/SKILL.md`, with the `tests.md` and `mocking.md` next to it, and follow its red → green → refactor loop and its rules. The seams are the ones agreed in step 1. Here the loop runs once per acceptance criterion, in order:
 
 1. Write one test at its seam, named after the behavior ("rejects an expired token", not "test_validate_2").
 2. Run it. It must fail, and for the reason the criterion describes. If it passes, or fails for an unrelated reason, fix the test before touching production code.
-3. Write the least code that makes it pass. No speculative features, no anticipating the next criterion.
-4. Run it again, plus typechecking. Green, then next criterion.
+3. Write the least code that makes it pass. No anticipating the next criterion.
+4. Run it again, plus typechecking. Green, then refactor as the tdd skill says, then next criterion.
 
-Rules of the loop:
+On top of the tdd rules:
 
-- **Vertical, not horizontal.** One test → one implementation → repeat. Never write all the tests first.
-- **Through the interface.** Don't mock internal collaborators, test private functions, or verify through a side channel (querying the database instead of the API). Mock only at a boundary the production code already isolates (external service, clock).
-- **No tautologies.** The expected value comes from the criterion, a worked example or a known-good literal, never recomputed the way the code computes it.
-- **No refactoring inside the loop.** Clean-up happens in step 5.
 - **A criterion with no cheap test** (visual feel, a third-party system with no sandbox) gets the closest executable check instead: a script, a browser run, a log assertion. Name it in the final report. Don't write a bad test to tick the box.
 - A bug found along the way gets the same treatment: failing test first, then the fix.
 
@@ -64,7 +62,7 @@ Fix (a) and (c). Remove (b) and list what you removed in the final report, so th
 
 ## 5. Simplify
 
-Simplify the code you wrote in this session. Use /simplify if available; otherwise do it yourself:
+The loop already refactored each cycle; this is the pass over the whole change. Use /simplify if available; otherwise do it yourself:
 
 - Remove dead code, unused imports, leftover debug output and speculative abstractions nobody asked for.
 - Collapse needless indirection: wrappers that only forward calls, one-use helpers, premature generics.
@@ -104,6 +102,8 @@ Commit to the current branch. The message says what the change does and why; it 
 Short, evidence over adjectives:
 
 - Each acceptance criterion → its test (or named check), and the failure it produced before the code existed.
+- Where the code went: the slice folder, or the layered structure followed instead.
+- Duplications between slices that were flagged, and what the user chose.
 - Mutation result from step 3.
 - Spec check findings, what you did with them, and anything removed as unrequested.
 - /code-review findings fixed and ignored (with why).

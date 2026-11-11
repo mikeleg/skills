@@ -61,8 +61,8 @@ workspace-setup  →  shape-it  →  implement  →  (bug?) tdd
 
 1. `workspace-setup` prepares the repo, the wiki and `CLAUDE.md` once per project.
 2. `shape-it` turns an idea into `docs/backlog/<feature>/scope.md` and `backlog.md`: vertical slices with acceptance criteria, optionally published as GitHub Issues or Azure DevOps work items.
-3. `implement` takes one slice (`implement S1`) and turns its acceptance criteria into tests, code, a review and a commit.
-4. `tdd` fixes a bug test-first. It runs only when you call `/tdd`.
+3. `implement` takes one slice (`implement S1`) and turns its acceptance criteria into tests, code, a review and a commit, running the `tdd` loop on each criterion.
+4. `tdd` builds a feature or fixes a bug test-first, red → green → refactor.
 
 Each skill also works on its own: `implement` accepts any ticket or spec, `shape-it` works in a chat without a codebase.
 
@@ -75,7 +75,8 @@ Each skill also works on its own: `implement` accepts any ticket or spec, `shape
 | `workspace-setup` | Sets up a workspace for agent work on any stack: code repo, a wiki the agent maintains as its second brain (Karpathy's LLM Wiki pattern: raw sources, index and log, ingest / task / query / lint), reference folder, run/debug config and `CLAUDE.md` with real commands, on Azure DevOps, GitHub or local only. Checks that the workflow skills (`shape-it`, `implement`, `tdd`, bundled `/simplify`, `/code-review`, `/verify`) are available and warns about the missing ones. | `git`. Optional: `az` with the azure-devops extension, or `gh`, to create repos, PRs and branch policies. |
 | `shape-it` | Turns a product idea, MVP or feature into a scoped plan and a backlog of vertical slices with acceptance criteria. Writes markdown in the repo and can publish it as tickets. | Optional: `gh` or `az` to publish the backlog to GitHub Issues or Azure DevOps Boards. |
 | `implement` | Implements a slice, spec or set of tickets test-first from its acceptance criteria, checks the result against the spec, simplifies it, reviews it with `/code-review`, guards the quality floor (no new suppressions, skipped tests or removed assertions) and commits. | Claude Code (uses the `/simplify` and `/code-review` skills when available). |
-| `tdd` | Fixes a bug test-first: writes a focused regression test that fails before the fix and passes after it, or the closest practical check when a test isn't worth it. Runs only when invoked explicitly. | None. |
+| `tdd` | Builds a feature or fixes a bug test-first in the red → green → refactor loop: tests at agreed seams, one vertical slice at a time, refactor only on green. Adapted from Matt Pocock's `tdd` skill (MIT). | None. |
+| `codebase-design` | Shared vocabulary for designing deep modules (module, interface, seam, adapter, depth), where a vertical slice is a module, plus clean code rules for the code inside a module. Used by `tdd` and `implement`. Adapted from Matt Pocock's `codebase-design` skill (MIT). | None. |
 | `analyze` | Analyzes a ticket, issue or bug report (Azure DevOps, GitHub, Jira or pasted text): cross-checks docs/wiki, code, git history and the database (read-only) to find where the problem is and propose the minimal fix. The answer is short and written for a person. | None to analyze pasted text. To read tickets: Azure CLI with the `azure-devops` extension, `gh`, or a connector for other trackers. |
 
 ### Work
@@ -134,7 +135,7 @@ The pane's labels are in Italian.
 .claude-plugin/
   marketplace.json     # the mikeleg marketplace: defines mikeleg-skills and kowalski, lists each mod
 skills/
-  development/         # workspace-setup, shape-it, implement, tdd, analyze
+  development/         # workspace-setup, shape-it, implement, tdd, codebase-design, analyze
   work/                # log-task-hours, reply-draft
   content/             # product-video
 plugins/

@@ -212,7 +212,7 @@ There is no separate questions file. An open point lives where the agent will re
 - Real build, test, typecheck and run commands. `implement` and other skills read them from here.
 - Provider and flow: dedicated branch, PR with context / what changes / how to verify, the provider's PR commands, the `main` protection rule (applied, or convention).
 - Backlog: `docs/backlog/<feature>/` (scope.md + backlog.md, written by `shape-it`).
-- Workflow: `shape-it` → `implement` (with `/simplify`, `/code-review`); `tdd` for bugs. They come from the `mikeleg-skills` plugin (marketplace `mikeleg/skills`).
+- Workflow: `shape-it` → `implement` (with `/simplify`, `/code-review`); `tdd` for test-first work (features or bugs). They come from the `mikeleg-skills` plugin (marketplace `mikeleg/skills`).
 - Security: never print tokens or put them in files; confirm before push, merge, sending, deleting.
 - The 3-line preamble ritual (goal, source of truth, definition of done) before non-trivial work, and the rule "if sources disagree, surface it and ask".
 - Wiki (`../wiki/`), in four lines: start every task from `../wiki/index.md`, open only the pages it touches and follow their `code:` pointers, search the code only for what the wiki doesn't answer; stop at **Open** blocks; read `../wiki/CLAUDE.md` before writing to the wiki; end every task with the wiki's **task** operation (update touched pages, decisions, index, log). Never edit `../reference/`.
@@ -241,7 +241,7 @@ The workspace is only useful if the agent has the skills that work in it. Check 
 |---|---|---|
 | `shape-it` | `mikeleg-skills` plugin (marketplace `mikeleg/skills`) | idea → scope → backlog of slices |
 | `implement` | `mikeleg-skills` plugin | slice → tested, reviewed commit |
-| `tdd` | `mikeleg-skills` plugin | bug fix, test first (invoked by hand) |
+| `tdd` | `mikeleg-skills` plugin | red → green → refactor, features or bugs; used by `implement` |
 | `/simplify`, `/code-review`, `/verify` | bundled with Claude Code | used by `implement` |
 
 **Check.** A skill counts as available if it appears in this session's list of available skills. If one is missing, `claude plugin list --json` tells whether `mikeleg-skills@mikeleg` is installed but disabled.
