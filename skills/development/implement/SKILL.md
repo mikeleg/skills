@@ -1,6 +1,6 @@
 ---
 name: implement
-description: Implement a slice, spec or set of tickets test-first from its acceptance criteria, then check the result against the spec, simplify it, review it with /code-review, guard the quality floor and commit. Use when the user says "implement S1", "build this slice/ticket/story/spec", or hands over a backlog item from shape-it to be coded.
+description: Implement a slice, spec or set of tickets test-first from its acceptance criteria, then check the result against the spec, simplify it, review it with /code-review and /kets-review, guard the quality floor and commit. Use when the user says "implement S1", "build this slice/ticket/story/spec", or hands over a backlog item from shape-it to be coded.
 ---
 
 # Implement
@@ -73,7 +73,7 @@ After simplifying, run typechecking and the full test suite. If anything breaks,
 
 ## 6. Review
 
-Use /code-review to review the work. Fix the issues it raises that are real; ignore the ones that aren't, and say why. Re-run the full test suite after any fix.
+Use `/code-review low` to review the work, then /kets-review (if available) for the design regressions the change introduces. Fix the issues they raise that are real; ignore the ones that aren't, and say why. Don't apply the opportunities /kets-review lists: copy them into the final report. Re-run the full test suite after any fix.
 
 ## 7. Guard the floor
 
@@ -106,5 +106,5 @@ Short, evidence over adjectives:
 - Duplications between slices that were flagged, and what the user chose.
 - Mutation result from step 3.
 - Spec check findings, what you did with them, and anything removed as unrequested.
-- /code-review findings fixed and ignored (with why).
+- /code-review and /kets-review findings fixed and ignored (with why), and the /kets-review opportunities.
 - Floor hits, if any, and their justification.
