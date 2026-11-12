@@ -30,7 +30,7 @@ Rules that hold for the whole skill:
 
 Install nothing without asking. Use what you found to pre-fill the answers below; never ask what you already know.
 
-## 1. Questions (one round, with AskUserQuestion)
+## 1. Questions (at most two rounds, with AskUserQuestion)
 
 First round, at most 4 questions, recommended option first when there is one:
 
@@ -225,9 +225,8 @@ There is no separate questions file. An open point lives where the agent will re
 - Provider: <azure-devops | github | local>  (org/project or owner)
 - Stack: <decided languages/frameworks>
 - app/  → <remote url or "local">
-- wiki/ → <remote url or "local">  · type: <code wiki | markdown repo | local>
+- wiki/ → <remote url or "local">  · type: <code wiki | markdown repo | local> · the agent's second brain (LLM Wiki pattern): start from wiki/index.md, schema in wiki/CLAUDE.md
 - reference/ → raw sources (read-only for the agent); current mocks in reference/mock/current/
-- wiki/ → the agent's second brain (LLM Wiki pattern): start from wiki/index.md, schema in wiki/CLAUDE.md
 - Project instructions: app/CLAUDE.md
 ```
 
@@ -243,7 +242,7 @@ The workspace is only useful if the agent has the skills that work in it. Check 
 | `implement` | `mikeleg-skills` plugin | slice → tested, reviewed commit |
 | `tdd` | `mikeleg-skills` plugin | red → green → refactor, features or bugs; used by `implement` |
 | `kets-review` | `mikeleg-skills` plugin | design review of a change; used by `implement` |
-| `/simplify`, `/code-review`, `/verify` | bundled with Claude Code | used by `implement` |
+| `/simplify`, `/code-review` | bundled with Claude Code | used by `implement` |
 
 **Check.** A skill counts as available if it appears in this session's list of available skills. If one is missing, `claude plugin list --json` tells whether `mikeleg-skills@mikeleg` is installed but disabled.
 
@@ -264,7 +263,7 @@ The workspace is only useful if the agent has the skills that work in it. Check 
    - Internal packages configured, or recorded as open points
    - Integrations behind a port + mock, one wiki page each
    - `app/CLAUDE.md` and root `CLAUDE.md` written, with real commands
-   - Workflow skills available: `shape-it`, `implement`, `tdd`, `kets-review`, and the bundled `/simplify`, `/code-review`, `/verify` (missing ones listed with their install command)
+   - Workflow skills available: `shape-it`, `implement`, `tdd`, `kets-review`, and the bundled `/simplify`, `/code-review` (missing ones listed with their install command)
 2. List the open points and where each one was recorded (wiki page or `app/CLAUDE.md`).
 3. Ask whether to commit (and push, if there's a remote) the scaffolding of `app/` and `wiki/`: one commit per repo, descriptive message. Never without confirmation.
 4. Propose the next step: ingest the sources already in `reference/` one at a time, then `shape-it` to turn the first feature or MVP into a backlog.

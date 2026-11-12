@@ -21,7 +21,7 @@ Speak the user's language in conversation. Write the artifacts (scope.md, backlo
 7. **Publish (optional)** – GitHub Issues or Azure DevOps work items, only after confirmation.
 8. **Hand off** – say which slice goes first and that implementation is a separate skill.
 
-Steps 2 and 4 are the only places you stop and wait for the user. Everything else, do.
+Steps 2, 4 and 7 (confirmation before publishing) are the only places you stop and wait for the user. Everything else, do.
 
 ---
 
@@ -109,7 +109,7 @@ You learned this in the interview. Adapt the *body* of each slice, not its shape
 
 Given / When / Then, concrete, verifiable. Two to five per slice. If a criterion contains "works correctly", "is fast", "handles errors", it is not a criterion yet – ask yourself what you would actually check and write that. Include the negative path when it matters (what happens on the invalid input, the timeout, the empty state).
 
-Each slice also gets a one-line **Why** (what it proves or what value it unlocks) and a **Size** (S/M/L, meaning roughly: one sitting / one day / needs splitting – if L, split it).
+Each slice also gets a one-line **Why** (what it proves or what value it unlocks) and a **Size**, measured as the work for the coding agent that will implement it, not human time: S = one implement run through one seam, a few files; M = one implement run through several seams or layers; L = doesn't fit one implement run (too much to hold at once, or decisions still open along the way) – split it.
 
 Full slice template and a worked example are in `references/templates.md`.
 

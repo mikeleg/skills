@@ -97,7 +97,7 @@ Good interfaces make testing natural:
 
 ## Inside the module: clean code
 
-The interface decides depth; the implementation behind it still has to be easy to read and change. Write it, and refactor it on green, by these rules (Robert C. Martin, *Clean Code*):
+The interface decides depth; the implementation behind it still has to be easy to read and change. Write it by these rules (Robert C. Martin, *Clean Code*):
 
 - **Names.** Reveal intent and use the domain's terms (the project's `GLOSSARY.md` if it exists). No abbreviations, encodings or type prefixes. Functions are verbs, types are nouns. If a name needs a comment, change the name.
 - **Functions.** Each does one thing, at one level of abstraction. Few arguments: past three, group them into a type that has a domain name. No flag arguments: two behaviors are two functions. No hidden side effects. A function either does something or answers something, not both (command-query separation).
@@ -106,9 +106,25 @@ The interface decides depth; the implementation behind it still has to be easy t
 - **Duplication.** No duplicated logic inside a module. When two vertical slices duplicate logic, don't merge it or keep it on your own: point out which slices and what is duplicated, then ask the user whether to keep the duplicate or move it to a shared place. Say so when sharing would couple slices that change for different reasons: the wrong shared abstraction costs more than the duplicate.
 - **Layout.** Public entry first, the functions it calls below it in reading order. Keep what changes together close together.
 - **Tests are code too.** One behavior per test; fast, independent, repeatable, self-validating.
-- **Leave it cleaner, inside the scope.** Clean the code the change touches; a wider clean-up is its own task.
 
-**When clean code and depth disagree, depth wins.** Don't split a function into shallow pieces only to make it short. Extract a piece only when it gets a name that hides real complexity and passes the deletion test; otherwise a longer function that reads top to bottom is better than a chain of one-line forwarders.
+**When clean code and depth disagree, depth wins.** Don't split a function into shallow pieces only to make it short (see Extract a function below): a longer function that reads top to bottom is better than a chain of one-line forwarders.
+
+## Refactoring
+
+**Refactor**: change the structure of code without changing its behaviour. Tests are green before and after, and no test changes its expected values; run them after every move and undo the move that turns one red. Stay inside the code the change touches; a wider clean-up is its own task. _Avoid_: "clean-up", "simplify" or "tidy" as names for something else.
+
+Use these moves, by these names, smallest first:
+
+- **Remove dead code**: unused code and imports, leftover debug output, commented-out code, speculative abstractions nobody asked for.
+- **Rename to the domain**: give a thing the domain's term (see Names above).
+- **Reuse the existing helper**: replace code that duplicates a helper the project already has with a call to it.
+- **Collapse a pass-through**: delete a wrapper, layer or one-use helper that only forwards calls, or a premature generic; it fails the deletion test.
+- **Move to its place**: move code to where the project puts code of that kind.
+- **Extract a function**: only when the new name hides real complexity and passes the deletion test.
+- **Give the concept a home**: replace the same if/switch on a type or state, repeated in several places, with one place that decides; use a pattern only if the project already uses it or there are at least two real variants now.
+- **Code judo**: restructure so whole branches or methods disappear while behaviour stays the same. When it exists it is the best move: look for it.
+
+Duplication between two vertical slices is not refactored on your own: see Duplication above.
 
 ## Relationships
 
