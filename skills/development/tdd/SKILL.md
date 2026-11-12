@@ -35,6 +35,7 @@ When the shape of that interface is itself in question (how deep the module is, 
 
 - **Red before green.** Write the failing test first, then only enough code to pass it. Don't anticipate future tests or add speculative features.
 - **One slice at a time.** One seam, one test, one minimal implementation per cycle.
+- **Prepare on green.** Before writing the next failing test, if the code it will change is hard to change, refactor it first (preparatory refactor, in the Refactoring section of `${CLAUDE_SKILL_DIR}/../codebase-design/SKILL.md`).
 - **Refactor on green, never on red.** Once the test passes, refactor the code this cycle touched, and its test, as the Refactoring section and the clean code rules in `${CLAUDE_SKILL_DIR}/../codebase-design/SKILL.md` say.
 - **One folder per slice.** Where the code is organized by feature (vertical slice architecture), everything a use case needs lives in one folder named after it in business terms (e.g. `Features/Orders/PlaceOrder/`): entry point, request/response, handler, validation, data access, and its tests next to them or in the mirrored test folder the project uses. Slices don't call each other's handlers. When this slice duplicates logic another slice already has, stop and follow the Duplication rule in `${CLAUDE_SKILL_DIR}/../codebase-design/SKILL.md`. In a repo organized by technical layer, follow the existing structure.
 

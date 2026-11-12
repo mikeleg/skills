@@ -75,7 +75,7 @@ Rules:
 - **Effort** is what the fix takes the agent that will make it, not a person's time: **small** = one place in one file, and the existing tests already cover it; **medium** = several files or call sites, or tests to add or change; **large** = changes an interface used elsewhere, crosses modules or layers, or needs a decision from the user first.
 - **Fix first**: 1-3 moves with the most impact for the least work, picked across findings and opportunities. Point to the finding or opportunity by its number instead of repeating it.
 - **Findings** (introduced or worsened) are numbered, so the user can say "fix 2". Order by impact over effort: the priority gives the impact, the effort reorders, so a small P2 comes before a large P1. P1: all of them. P2: at most 5, the smallest effort first. P3: at most 3, only small ones, in the "Minor" line.
-- **Opportunities**: at most 3, pre-existing in the touched code, chosen by payoff over effort. Weigh payoff by how often the file changes: `git log --since="12 months ago" --format= --name-only -- <file> | wc -l`; debt in a file that changes often pays off more. Listed only: never applied, no tickets opened.
+- **Opportunities**: at most 3, pre-existing in the touched code, chosen by payoff over effort. Weigh payoff by how often the file changes: `git log --since="12 months ago" --format= --name-only -- <file> | wc -l`; debt in a file that changes often pays off more. The review only lists them: it never applies them or opens tickets (implement applies the small ones).
 - One sentence per bullet, no paragraphs. A code snippet only when the signal can't be shown otherwise, at most 3 lines.
 - Leave out empty sections and lines ("Minor", "Left out", "Opportunities") instead of writing "none".
 
