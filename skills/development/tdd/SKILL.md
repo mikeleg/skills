@@ -23,7 +23,7 @@ A **seam** is the public boundary you test at: the interface where you observe b
 
 Ask: "What's the public interface, and which seams should we test?" Give each proposed seam a one-line note on what it catches and what it misses.
 
-When the shape of that interface is itself in question (how deep the module is, where the seam belongs, what the interface should expose), call the Skill tool with "codebase-design" for the vocabulary. It is the shared source of the module, interface, depth, seam, adapter, leverage and locality terms, and it is a reference to consult, not a session to run.
+When the shape of that interface is itself in question (how deep the module is, where the seam belongs, what the interface should expose), read `${CLAUDE_SKILL_DIR}/../codebase-design/SKILL.md` for the vocabulary (if that file isn't there, go on without it). It is the shared source of the module, interface, depth, seam, adapter, leverage and locality terms, and it is a reference to consult, not a session to run.
 
 ## Anti-patterns
 
@@ -35,8 +35,9 @@ When the shape of that interface is itself in question (how deep the module is, 
 
 - **Red before green.** Write the failing test first, then only enough code to pass it. Don't anticipate future tests or add speculative features.
 - **One slice at a time.** One seam, one test, one minimal implementation per cycle.
-- **Refactor on green, never on red.** Once the test passes, clean up the code this cycle touched, and its test: remove duplication, fix names so they use the domain's terms, collapse needless indirection, following the clean code rules in the `codebase-design` skill. Behavior stays the same, so no test changes its expected values and no new behavior sneaks in. Run the tests after every change; if one goes red, undo that change. Keep refactoring inside the code this cycle touched; a wider clean-up is its own task.
-- **One folder per slice.** Where the code is organized by feature (vertical slice architecture), everything a use case needs lives in one folder named after it in business terms (e.g. `Features/Orders/PlaceOrder/`): entry point, request/response, handler, validation, data access, and its tests next to them or in the mirrored test folder the project uses. Slices don't call each other's handlers. When this slice duplicates logic another slice already has, stop and point it out: which slices, what is duplicated, and the options (keep the duplicate, or move it to a shared place). Ask the user what to do; don't decide alone. In a repo organized by technical layer, follow the existing structure.
+- **Prepare on green.** Before writing the next failing test, if the code it will change is hard to change, refactor it first (preparatory refactor, in the Refactoring section of `${CLAUDE_SKILL_DIR}/../codebase-design/SKILL.md`).
+- **Refactor on green, never on red.** Once the test passes, refactor the code this cycle touched, and its test, as the Refactoring section and the clean code rules in `${CLAUDE_SKILL_DIR}/../codebase-design/SKILL.md` say.
+- **One folder per slice.** Where the code is organized by feature (vertical slice architecture), everything a use case needs lives in one folder named after it in business terms (e.g. `Features/Orders/PlaceOrder/`): entry point, request/response, handler, validation, data access, and its tests next to them or in the mirrored test folder the project uses. Slices don't call each other's handlers. When this slice duplicates logic another slice already has, stop and follow the Duplication rule in `${CLAUDE_SKILL_DIR}/../codebase-design/SKILL.md`. In a repo organized by technical layer, follow the existing structure.
 
 ---
 

@@ -5,7 +5,7 @@ description: Review a change (current diff, branch, PR or path) for the design r
 
 # Kets Review
 
-Judge the change, not the project. Measure it against the architecture the project has, not an ideal one. This skill complements `/code-review` (correctness bugs) and `/simplify` (local cleanups): don't repeat their findings. Use the vocabulary of the `codebase-design` skill (module, interface, seam, depth, deletion test).
+Judge the change, not the project. Measure it against the architecture the project has, not an ideal one. This skill complements `/code-review` (correctness bugs) and `/simplify` (local cleanups): don't repeat their findings. Use the vocabulary of `${CLAUDE_SKILL_DIR}/../codebase-design/SKILL.md`, if that file is there (module, interface, seam, depth, deletion test, refactoring moves).
 
 ## 1. Target
 
@@ -35,7 +35,7 @@ This rule is what makes the review usable on old codebases.
 
 ## 4. What to look for, by priority
 
-80/20: the most impact for the least work. A few kinds of problem cause most of the maintenance cost: they make every future change touch several places, or hide bugs. The priority below is the impact. Look for P1 first across the whole diff; move to P2 and P3 only after. A review that finds only the P1s is already useful. Then weigh each problem by what its fix costs (see the report): the best move is the cheapest fix with the biggest impact.
+80/20: the most impact for the least work. A few kinds of problem cause most of the maintenance cost: they make every future change touch several places, or hide bugs. The priority below is the impact. Look for P1 first across the whole diff; move to P2 and P3 only after. A review that finds only the P1s is already useful. Then weigh each problem by the effort its fix takes (see the report): the best move is the smallest effort with the biggest impact.
 
 | Priority | Smell | Signal in the code |
 |---|---|---|
@@ -45,7 +45,6 @@ This rule is what makes the review usable on old codebases.
 | P1 | Hidden effects | A function that answers but also changes something; "call A before B" not enforced by the code; shared mutable global or static state |
 | P1 | Hidden errors | Empty catch blocks, error codes, null returned where the language offers better |
 | P1 | Spaghetti | Flow doesn't read top to bottom: state variables set in one place and checked far below, scattered returns, exceptions used as control flow |
-| P1 | Code judo | A restructuring that keeps behaviour identical and removes whole branches or methods. Look for it actively |
 | P2 | God class or method | An already large class or method keeps growing and takes on new responsibilities, not just new lines. Report lines before → after; no fixed threshold |
 | P2 | Shotgun surgery | The change repeats the same tweak in N files: that concept has no home |
 | P2 | Weaker types | New casts, `object`/`dynamic`/`any`, nullables without a reason at a seam |
@@ -58,15 +57,9 @@ This rule is what makes the review usable on old codebases.
 
 ## 5. Remedies
 
-Prefer the smallest move that removes the problem:
+Prefer the smallest refactoring move from `codebase-design` that removes the problem, and name it in the finding's Fix line. Look actively for code judo: when it exists it is the best move.
 
-- delete a wrapper;
-- reuse the existing helper;
-- move the code where the project puts code of that kind;
-- extract a function only when it gets a name that hides real complexity (deletion test);
-- replace a repeated switch with one place that decides; use a pattern only if the project already uses it or there are at least two real variants now.
-
-Never propose: an architecture migration (introducing DDD, layers or CQRS where the project doesn't have them); patterns without two real implementations; splitting functions only to make them short; renaming or reformatting outside the change.
+Never propose: an architecture migration (introducing DDD, layers or CQRS where the project doesn't have them); renaming or reformatting outside the change.
 
 ## 6. Verify before reporting
 
@@ -74,15 +67,16 @@ Every finding cites `file:line`, the concrete signal, why it is a problem here (
 
 ## 7. Report
 
-Write it in the conversation's language. Order:
+Write it in the conversation's language, for someone who hasn't read the diff: plain words first, the priority and smell name only as a tag. Fill the template in `report-template.md`, next to this file.
 
-1. **Start here**: the 1-3 moves with the most impact for the least work, picked across findings and opportunities. One line each: the move, `file:line`, why it pays off.
-2. **Findings** (introduced or worsened). Each: `file:line`, problem, signal, remedy, fix cost (S: minutes, M: hours, L: a day or more), origin (introduced / worsened). Order by impact over cost: the priority gives the impact, the fix cost reorders. A P2 that takes minutes comes before a P1 that takes a day.
-   - P1: all of them.
-   - P2: at most 5, the cheapest to fix first.
-   - P3: at most 3, only those that cost S, in one "Minor" line.
-   If you left some out, say how many and of which priority.
-3. **Opportunities**: at most 3, pre-existing in the touched code, chosen by payoff over cost. Weigh payoff by how often the file changes: `git log --since="12 months ago" --format= --name-only -- <file> | wc -l`; debt in a file that changes often pays off more. Each: what, where, the file's churn, estimated cost (S/M/L) and risk, why it pays off. Listed only: never applied, no tickets opened.
-4. **Verdict**: "ok" or "fixes needed". P1 and P2 findings block until fixed or justified with a real technical reason; P3 findings and opportunities never block. Passing tests is not a reason to approve.
+Rules:
+
+- **Verdict** first. "fixes needed" when a reported P1 or P2 finding is neither fixed nor justified with a real technical reason; P3 findings and opportunities never block. Passing tests is not a reason to approve.
+- **Effort** is what the fix takes the agent that will make it, not a person's time: **small** = one place in one file, and the existing tests already cover it; **medium** = several files or call sites, or tests to add or change; **large** = changes an interface used elsewhere, crosses modules or layers, or needs a decision from the user first.
+- **Fix first**: 1-3 moves with the most impact for the least work, picked across findings and opportunities. Point to the finding or opportunity by its number instead of repeating it.
+- **Findings** (introduced or worsened) are numbered, so the user can say "fix 2". Order by impact over effort: the priority gives the impact, the effort reorders, so a small P2 comes before a large P1. P1: all of them. P2: at most 5, the smallest effort first. P3: at most 3, only small ones, in the "Minor" line.
+- **Opportunities**: at most 3, pre-existing in the touched code, chosen by payoff over effort. Weigh payoff by how often the file changes: `git log --since="12 months ago" --format= --name-only -- <file> | wc -l`; debt in a file that changes often pays off more. The review only lists them: it never applies them or opens tickets (implement applies the small ones).
+- One sentence per bullet, no paragraphs. A code snippet only when the signal can't be shown otherwise, at most 3 lines.
+- Leave out empty sections and lines ("Minor", "Left out", "Opportunities") instead of writing "none".
 
 If there is nothing to report, say so in one line; no filler praise. Be direct and specific, never rude, never watered down.

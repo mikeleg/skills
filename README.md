@@ -63,6 +63,8 @@ workspace-setup  →  shape-it  →  implement  →  (bug?) tdd
 2. `shape-it` turns an idea into `docs/backlog/<feature>/scope.md` and `backlog.md`: vertical slices with acceptance criteria, optionally published as GitHub Issues or Azure DevOps work items.
 3. `implement` takes one slice (`implement S1`) and turns its acceptance criteria into tests, code, a review and a commit, running the `tdd` loop on each criterion.
 4. `tdd` builds a feature or fixes a bug test-first, red → green → refactor.
+5. `kets-review` reviews a change for the design regressions it introduces; `implement` runs it at its review step. `codebase-design` is the shared vocabulary of `tdd`, `implement` and `kets-review`.
+6. `analyze` reads a ticket or bug report and finds where the problem is, before `tdd` or `implement` fix it.
 
 Each skill also works on its own: `implement` accepts any ticket or spec, `shape-it` works in a chat without a codebase.
 
@@ -72,9 +74,9 @@ Each skill also works on its own: `implement` accepts any ticket or spec, `shape
 
 | Skill | What it does | Requirements |
 | --- | --- | --- |
-| `workspace-setup` | Sets up a workspace for agent work on any stack: code repo, a wiki the agent maintains as its second brain (Karpathy's LLM Wiki pattern: raw sources, index and log, ingest / task / query / lint), reference folder, run/debug config and `CLAUDE.md` with real commands, on Azure DevOps, GitHub or local only. Checks that the workflow skills (`shape-it`, `implement`, `tdd`, bundled `/simplify`, `/code-review`, `/verify`) are available and warns about the missing ones. | `git`. Optional: `az` with the azure-devops extension, or `gh`, to create repos, PRs and branch policies. |
+| `workspace-setup` | Sets up a workspace for agent work on any stack: code repo, a wiki the agent maintains as its second brain (Karpathy's LLM Wiki pattern: raw sources, index and log, ingest / task / query / lint), reference folder, run/debug config and `CLAUDE.md` with real commands, on Azure DevOps, GitHub or local only. Checks that the workflow skills (`shape-it`, `implement`, `tdd`, `kets-review`, bundled `/simplify`, `/code-review`) are available and warns about the missing ones. | `git`. Optional: `az` with the azure-devops extension, or `gh`, to create repos, PRs and branch policies. |
 | `shape-it` | Turns a product idea, MVP or feature into a scoped plan and a backlog of vertical slices with acceptance criteria. Writes markdown in the repo and can publish it as tickets. | Optional: `gh` or `az` to publish the backlog to GitHub Issues or Azure DevOps Boards. |
-| `implement` | Implements a slice, spec or set of tickets test-first from its acceptance criteria, checks the result against the spec, simplifies it, reviews it with `/code-review` and `kets-review`, guards the quality floor (no new suppressions, skipped tests or removed assertions) and commits. | Claude Code (uses the `/simplify` and `/code-review` skills when available). |
+| `implement` | Implements a slice, spec or ticket test-first from its acceptance criteria, checks the result against the spec, simplifies it, reviews it with `/code-review` and `kets-review`, guards the quality floor (no new suppressions, skipped tests or removed assertions) and commits. | Claude Code (uses the `/simplify` and `/code-review` skills when available). |
 | `tdd` | Builds a feature or fixes a bug test-first in the red → green → refactor loop: tests at agreed seams, one vertical slice at a time, refactor only on green. Adapted from Matt Pocock's `tdd` skill (MIT). | None. |
 | `codebase-design` | Shared vocabulary for designing deep modules (module, interface, seam, adapter, depth), where a vertical slice is a module, plus clean code rules for the code inside a module. Used by `tdd` and `implement`. Adapted from Matt Pocock's `codebase-design` skill (MIT). | None. |
 | `kets-review` | Reviews a change (diff, branch, PR or path) for the design regressions it introduces: spaghetti code and related smells, logic in the wrong place, duplicates of existing helpers, weaker types, pass-through wrappers. Judges the change against the project's own architecture, so it works on any stack and on old codebases; lists at most 3 improvement opportunities in the touched code without applying them. Complements `/code-review`. Used by `implement`. | None. Optional: `gh` or `az` to review a PR. |
@@ -84,8 +86,8 @@ Each skill also works on its own: `implement` accepts any ticket or spec, `shape
 
 | Skill | What it does | Requirements |
 | --- | --- | --- |
-| `log-task-hours` | Logs actual hours on an Azure DevOps work item as a child Task, inferring ticket, hours and title from your Claude Code sessions. Call it with `/log-task-hours [ticket-id]`. | Azure CLI with the `azure-devops` extension, Python. Claude Code (reads the `~/.claude/projects` session logs). The organization is set to `engagelabsit` in the skill: change it for yours. |
-| `reply-draft` | Drafts a reply to a customer email as an Outlook draft (never sent), using the thread, your past replies and the current work as context. Call it with `/reply-draft [sender, subject or work item id]`. | Microsoft 365 connector (Outlook). Optional: Azure CLI to read work items. |
+| `log-task-hours` | Logs actual hours on an Azure DevOps work item as a child Task, inferring ticket, hours and title from your Claude Code sessions. Call it with `/mikeleg-skills:log-task-hours [ticket-id]` or `/kowalski:ore`. | Azure CLI with the `azure-devops` extension, Python. Claude Code (reads the `~/.claude/projects` session logs). The organization (`engagelabsit`) and the assignee are set in the skill: change them for yours. |
+| `reply-draft` | Drafts a reply to a customer email as an Outlook draft (never sent), using the thread, your past replies and the current work as context. Call it with `/mikeleg-skills:reply-draft [sender, subject or work item id]` or `/kowalski:email`. | Microsoft 365 connector (Outlook). Optional: Azure CLI to read work items. |
 
 ### Content
 
@@ -136,7 +138,7 @@ The pane's labels are in Italian.
 .claude-plugin/
   marketplace.json     # the mikeleg marketplace: defines mikeleg-skills and kowalski, lists each mod
 skills/
-  development/         # workspace-setup, shape-it, implement, tdd, codebase-design, analyze
+  development/         # workspace-setup, shape-it, implement, tdd, codebase-design, kets-review, analyze
   work/                # log-task-hours, reply-draft
   content/             # product-video
 plugins/
