@@ -1,6 +1,6 @@
 ---
 name: implement
-description: Implement a slice, spec or set of tickets test-first from its acceptance criteria, then check the result against the spec, simplify it, review it with /code-review and /kets-review, guard the quality floor and commit. Use when the user says "implement S1", "build this slice/ticket/story/spec", or hands over a backlog item from shape-it to be coded.
+description: Implement a slice, spec or ticket test-first from its acceptance criteria, then check the result against the spec, simplify it, review it with /code-review and kets-review, guard the quality floor and commit. Use when the user says "implement S1", "build this slice/ticket/story/spec", or hands over a backlog item from shape-it to be coded.
 ---
 
 # Implement
@@ -19,12 +19,12 @@ Turn one unit of agreed work (a slice from `docs/backlog/<feature>/backlog.md`, 
 A seam is the public interface a test goes through: an HTTP endpoint, a command, a module's exported function, a component's rendered output. Tests live at seams, never against internals.
 
 - If the slice lists **Seams** (shape-it writes them), they are already agreed: map each acceptance criterion to a seam and go.
-- If it doesn't, propose them in one message: for each acceptance criterion, the seam and the test you will write there, with one line on what it catches and what it misses. Wait for the user's ok. This is the only planned stop; the other one is a slice that duplicates another (see the tdd skill).
-- If where a seam belongs, or how deep the module behind it should be, is unclear, use the `codebase-design` skill for the vocabulary and the options.
+- If it doesn't, propose them in one message: for each acceptance criterion, the seam and the test you will write there, with one line on what it catches and what it misses. Wait for the user's ok. This is the only planned stop; the other one is a slice that duplicates another (see the Duplication rule in codebase-design).
+- If where a seam belongs, or how deep the module behind it should be, is unclear, read `${CLAUDE_SKILL_DIR}/../codebase-design/SKILL.md` for the vocabulary and the options (if that file isn't there, go on without it).
 
 ## 2. Build it test-first, one criterion at a time
 
-Read `${CLAUDE_SKILL_DIR}/../tdd/SKILL.md`, with the `tests.md` and `mocking.md` next to it, and follow its red → green → refactor loop and its rules. The seams are the ones agreed in step 1. Here the loop runs once per acceptance criterion, in order:
+Read `${CLAUDE_SKILL_DIR}/../tdd/SKILL.md`, with the `tests.md` and `mocking.md` next to it, and follow its red → green → refactor loop and its rules. If that file isn't there, use the `tdd` skill if this session lists it; otherwise follow the loop below on its own and say so in the final report. The seams are the ones agreed in step 1. Here the loop runs once per acceptance criterion, in order:
 
 1. Write one test at its seam, named after the behavior ("rejects an expired token", not "test_validate_2").
 2. Run it. It must fail, and for the reason the criterion describes. If it passes, or fails for an unrelated reason, fix the test before touching production code.
@@ -62,18 +62,11 @@ Fix (a) and (c). Remove (b) and list what you removed in the final report, so th
 
 ## 5. Simplify
 
-The loop already refactored each cycle; this is the pass over the whole change. Use /simplify if available; otherwise do it yourself:
-
-- Remove dead code, unused imports, leftover debug output and speculative abstractions nobody asked for.
-- Collapse needless indirection: wrappers that only forward calls, one-use helpers, premature generics.
-- Prefer existing utilities in the codebase over new ones you wrote.
-- Keep behavior identical. Do not touch code outside the scope of this work.
-
-After simplifying, run typechecking and the full test suite. If anything breaks, fix it or revert that simplification.
+The loop already refactored each cycle; this is the refactor pass over the whole change. Use /simplify if available; otherwise refactor it yourself as the Refactoring section of `${CLAUDE_SKILL_DIR}/../codebase-design/SKILL.md` says, mainly remove dead code, collapse a pass-through and reuse the existing helper. Then run typechecking and the full test suite.
 
 ## 6. Review
 
-Use `/code-review low` to review the work, then /kets-review (if available) for the design regressions the change introduces. Fix the issues they raise that are real; ignore the ones that aren't, and say why. Don't apply the opportunities /kets-review lists: copy them into the final report. Re-run the full test suite after any fix.
+Use `/code-review low` to review the work, then read `${CLAUDE_SKILL_DIR}/../kets-review/SKILL.md` and follow it on the same change for the design regressions it introduces (if that file isn't there, skip it and say so in the final report). Fix the issues they raise that are real; ignore the ones that aren't, and say why. Don't apply the opportunities kets-review lists: copy them into the final report. Re-run the full test suite after any fix.
 
 ## 7. Guard the floor
 
@@ -106,5 +99,5 @@ Short, evidence over adjectives:
 - Duplications between slices that were flagged, and what the user chose.
 - Mutation result from step 3.
 - Spec check findings, what you did with them, and anything removed as unrequested.
-- /code-review and /kets-review findings fixed and ignored (with why), and the /kets-review opportunities.
+- /code-review and kets-review findings fixed and ignored (with why), and the kets-review opportunities.
 - Floor hits, if any, and their justification.
