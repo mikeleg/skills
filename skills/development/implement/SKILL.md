@@ -1,6 +1,6 @@
 ---
 name: implement
-description: Implement a slice, spec or ticket test-first from its acceptance criteria, then check the result against the spec, simplify it, review it with /code-review and kets-review, guard the quality floor and commit. Use when the user says "implement S1", "build this slice/ticket/story/spec", or hands over a backlog item from shape-it to be coded.
+description: Implement a slice, spec or ticket from its acceptance criteria - agree the seams, build it test-first by running the tdd loop on each criterion - then check the result against the spec, simplify it, review it with /code-review and kets-review, guard the quality floor and commit. Use when the user says "implement S1", "build this slice/ticket/story/spec", or hands over a backlog item from shape-it to be coded.
 ---
 
 # Implement
@@ -11,32 +11,26 @@ Turn one unit of agreed work (a slice from `docs/backlog/<feature>/backlog.md`, 
 
 - Find the work: the slice/ticket/spec the user named. If it came from shape-it, also read `scope.md` (non-goals matter for the spec check).
 - Read `CLAUDE.md`/`AGENTS.md` and the project's test and typecheck commands. Never ask what you can read.
-- Note how the code is organized. In a new repo, or one already organized by feature, the work is built as a vertical slice (see step 2). In a repo organized by technical layer (Controllers/Services/Repositories), follow the existing structure and say so in the final report.
+- Note how the code is organized: by feature (a new repo counts as this) or by technical layer (Controllers/Services/Repositories). The folder rule in tdd depends on it; the final report says which structure the work followed.
+- Read `${CLAUDE_SKILL_DIR}/../tdd/SKILL.md`, with the `tests.md` and `mocking.md` next to it: steps 1 and 2 follow it. If that file isn't there, use the `tdd` skill if this session lists it; otherwise work red → green → refactor without it and say so in the final report.
 - Record the starting point: run `git rev-parse HEAD` and note the SHA. Every check below diffs against it. Shell variables don't survive between commands, so write the SHA out in each command (shown as `<base>` below).
 
 ## 1. Seams (the one checkpoint)
 
-A seam is the public interface a test goes through: an HTTP endpoint, a command, a module's exported function, a component's rendered output. Tests live at seams, never against internals.
+Tests go only at agreed seams; tdd says what a seam is and how to propose one.
 
 - If the slice lists **Seams** (shape-it writes them), they are already agreed: map each acceptance criterion to a seam and go.
-- If it doesn't, propose them in one message: for each acceptance criterion, the seam and the test you will write there, with one line on what it catches and what it misses. Wait for the user's ok. This is the only planned stop; the other one is a slice that duplicates another (see the Duplication rule in codebase-design).
-- If where a seam belongs, or how deep the module behind it should be, is unclear, read `${CLAUDE_SKILL_DIR}/../codebase-design/SKILL.md` for the vocabulary and the options (if that file isn't there, go on without it).
+- If it doesn't, propose them in one message as tdd says, a seam and a test for each acceptance criterion. Wait for the user's ok. This is the only planned stop; the other one is a slice that duplicates another (see the Duplication rule in codebase-design).
 
-## 2. Build it test-first, one criterion at a time
+## 2. Build it with tdd, one criterion at a time
 
-Read `${CLAUDE_SKILL_DIR}/../tdd/SKILL.md`, with the `tests.md` and `mocking.md` next to it, and follow its red → green → refactor loop and its rules. If that file isn't there, use the `tdd` skill if this session lists it; otherwise follow the loop below on its own and say so in the final report. The seams are the ones agreed in step 1. Here the loop runs once per acceptance criterion, in order:
+Run the tdd loop once per acceptance criterion, in order. The criterion is the behavior the test names, and the seams from step 1 are tdd's agreed seams: don't ask again. How to write the test and run the loop is in tdd; this step only adds:
 
-1. If the code this criterion will change is hard to change, refactor it first (preparatory refactor, see the tdd rules). Then write one test at its seam, named after the behavior ("rejects an expired token", not "test_validate_2").
-2. Run it. It must fail, and for the reason the criterion describes. If it passes, or fails for an unrelated reason, fix the test before touching production code.
-3. Write the least code that makes it pass. No anticipating the next criterion.
-4. Run it again, plus typechecking. Green, then refactor as the tdd skill says, then next criterion.
-
-On top of the tdd rules:
-
+- Note the failure each test produced before the code existed: the final report asks for it.
+- Run typechecking with the tests on every green.
 - **A criterion with no cheap test** (visual feel, a third-party system with no sandbox) gets the closest executable check instead: a script, a browser run, a log assertion. Name it in the final report. Don't write a bad test to tick the box.
-- A bug found along the way gets the same treatment: failing test first, then the fix.
-
-Run single test files often; run the full suite once all criteria are green.
+- A bug found along the way gets a tdd cycle of its own.
+- Run single test files often; run the full suite once all criteria are green.
 
 ## 3. Prove the tests can fail
 

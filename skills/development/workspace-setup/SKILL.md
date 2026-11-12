@@ -1,6 +1,6 @@
 ---
 name: workspace-setup
-description: Set up a development workspace for working with a coding agent - code repo, a wiki the agent maintains as its second brain (Karpathy's LLM Wiki pattern), raw-sources folder, run/debug config and agent instructions - on Azure DevOps, GitHub or local only, for any stack, and warns if the workflow skills (shape-it, implement, tdd) are missing. Use when the user wants to start a new project, set up or initialize a workspace or repo, onboard an existing repo for agent work, or says "prepare the repo", "set up the project", "init the workspace".
+description: Set up a development workspace for working with a coding agent - code repo, a wiki the agent maintains as its second brain (Karpathy's LLM Wiki pattern), raw-sources folder, run/debug config and agent instructions - on Azure DevOps, GitHub or local only, for any stack, and warns if the workflow skills (shape-it, implement, tdd, kets-review) are missing. Use when the user wants to start a new project, set up or initialize a workspace or repo, onboard an existing repo for agent work, or says "prepare the repo", "set up the project", "init the workspace".
 ---
 
 # Workspace setup

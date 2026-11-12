@@ -122,8 +122,8 @@ test('contesto: barra divisa per categoria con legenda e MCP', async ($, on) => 
     const ui = await $.ui.mount({ ...PANE, surface })
     expect((await ui.find({ type: 'Text', text: /^ctx/ }))?.text).toBe(`ctx   ${'━'.repeat(15)}${'─'.repeat(15)} 50% 100k/200k`)
     expect((await ui.find({ type: 'Text', text: /■/ }))?.text).toBe('      ■ messaggi 60k   30%')
-    // Only schemas inside the window count; they sit in the token tab.
-    await ui.press({ key: 'tab-token' })
+    // Only schemas inside the window count; at 40 rows both sections show, no tab to press.
+    expect(await ui.find({ key: 'tab-token' })).toBeUndefined()
     expect((await ui.find({ type: 'Text', text: /^MCP/ }))?.text).toBe('MCP      Gmail  6k')
     await ui.unmount()
   }
@@ -150,9 +150,15 @@ test('limiti: 5 ore e settimana con il reset nella stessa colonna', async ($, on
     const ui = await $.ui.mount({ ...PANE, surface })
     const five = (await ui.find({ type: 'Text', text: /^5 ore/ }))?.text ?? ''
     const week = (await ui.find({ type: 'Text', text: /^7 giorni/ }))?.text ?? ''
-    expect(five).toMatch(new RegExp(`^5 ore {4}━{14}─{2}  90%  ◷ {4}2h15  ${DAY}$`))
-    expect(week).toMatch(new RegExp(`^7 giorni ━{5}─{11}  30%  ◷ {3}3g 4h  ${DAY}$`))
-    expect((await ui.find({ type: 'Text', text: /^Spesa/ }))?.text).toBe(`Spesa    ${'━'.repeat(10)}${'─'.repeat(6)}  65%  ◷ n/d`)
+    // The projection at the reset, at the pace so far: 90% in 2h45 of 5 hours, 30% in 92 hours of 168.
+    expect(five).toMatch(new RegExp(`^5 ore {4}━{14}─{2}  90% →164%  ◷ {4}2h15  ${DAY}$`))
+    expect(week).toMatch(new RegExp(`^7 giorni ━{5}─{11}  30%  →55%  ◷ {3}3g 4h  ${DAY}$`))
+    expect((await ui.find({ type: 'Text', text: /^Spesa/ }))?.text).toBe(`Spesa    ${'━'.repeat(10)}${'─'.repeat(6)}  65%${' '.repeat(8)}◷ n/d`)
+    // Past 100% and already close: red; within the window: quiet.
+    expect((await ui.find({ type: 'Text', text: /^ →164%$/ }))?.props.color).toBe('#EF9A9A')
+    expect((await ui.find({ type: 'Text', text: /^ {2}→55%$/ }))?.props.color).toBe('#90A4AE')
+    // The window that runs out first, and how long before its reset: 10% left at 90% in 2h45 is 18 minutes.
+    expect((await ui.find({ type: 'Text', text: /^⚠/ }))?.text).toMatch(new RegExp(`^⚠ 5 ore finisce ${DAY} · 1h57 prima del reset$`))
     // The two resets start, count and end in the same columns.
     expect(week.indexOf('◷')).toBe(five.indexOf('◷'))
     expect(week.length).toBe(five.length)
@@ -161,7 +167,7 @@ test('limiti: 5 ore e settimana con il reset nella stessa colonna', async ($, on
 })
 
 test('limiti: il reset settimanale ricordato quando la lettura non lo porta', async ($, on) => {
-  const clock = mock.clock(on, { now: NOW })
+  mock.clock(on, { now: NOW })
   mock.store(on, { resets: { seven_day: new Date(NOW + 26 * 3_600_000).toISOString() } })
   host(on)
   let limits: SessionUsage['rateLimits'] = [{ kind: 'five_hour', percentUsed: 12, resetsAt: new Date(NOW + 3_600_000).toISOString() }]
@@ -171,22 +177,35 @@ test('limiti: il reset settimanale ricordato quando la lettura non lo porta', as
   on('command.register', () => ({ value: { command: 'cruscotto' } }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
   on('ui.close', () => ({ value: undefined }))
+  on('ui.status', () => ({ value: undefined }))
   await $.session.start({ cwd: '/r', surface: 'terminal', isInteractive: true })
 
   // Not reported at all: the row stays, with the reset it last had.
   let ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect((await ui.find({ type: 'Text', text: /^7 giorni/ }))?.text).toMatch(/^7 giorni ─{16} {4}– {2}◷ {2}≈1g 2h {2}\S+ \d\d:\d\d$/)
+  expect((await ui.find({ type: 'Text', text: /^7 giorni/ }))?.text).toMatch(/^7 giorni ─{16} {4}– {8}◷ {2}≈1g 2h {2}\S+ \d\d:\d\d$/)
   await ui.unmount()
 
   // Reported without a reset: the percentage is the reading's, the reset the remembered one.
   limits = [...limits, { kind: 'seven_day', percentUsed: 40 }]
   ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect((await ui.find({ type: 'Text', text: /^7 giorni/ }))?.text).toMatch(/  40%  ◷ {2}≈1g 2h  /)
+  expect((await ui.find({ type: 'Text', text: /^7 giorni/ }))?.text).toMatch(/  40%  →47%  ◷ {2}≈1g 2h  /)
   await ui.unmount()
+})
 
-  // Past it, the week rolls on by seven days.
-  await clock.advance(27 * 3_600_000)
-  ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+test('limiti: passato il reset ricordato, la settimana avanza di sette giorni', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  mock.store(on, { resets: { seven_day: new Date(NOW - 3_600_000).toISOString() } })
+  host(on)
+  on('session.usage', () => ({ value: usage() }))
+  on('agent.list', () => ({ value: [] }))
+  on('session.start', () => ({ cwd: '/r' }))
+  on('command.register', () => ({ value: { command: 'cruscotto' } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.close', () => ({ value: undefined }))
+  on('ui.status', () => ({ value: undefined }))
+  await $.session.start({ cwd: '/r', surface: 'terminal', isInteractive: true })
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   expect((await ui.find({ type: 'Text', text: /^7 giorni/ }))?.text).toMatch(/◷ ≈6g 23h  /)
   await ui.unmount()
 })
@@ -207,6 +226,192 @@ test('limiti: un reset letto resta per la sessione dopo', async ($, on) => {
   await $.session.measure({ context: { window: 200_000 }, rateLimits: [{ kind: 'seven_day', percentUsed: 5, resetsAt: reset }], changed: [] })
   await $.session.measure({ context: { window: 200_000 }, rateLimits: [{ kind: 'seven_day', percentUsed: 6, resetsAt: reset }], changed: [] })
   expect(saved).toEqual([{ seven_day: reset }])
+})
+
+/** A coloured run inside a row: a Text child of the row's Text. */
+type Run = { props?: { color?: string }; children?: string[] }
+
+/**
+ * A session that starts with `day` in the store and the week at `used()`, 76 hours from its
+ * reset; the result draws the pane and reads the row of today's share.
+ */
+async function todayRow($: Engine, on: On, day: { date: string; used: number; at: number }, used: () => number) {
+  mock.clock(on, { now: NOW })
+  mock.store(on, { day })
+  host(on)
+  const resetsAt = new Date(NOW + 76 * 3_600_000).toISOString()
+  on('session.usage', () => ({ value: usage({ rateLimits: [{ kind: 'seven_day', percentUsed: used(), resetsAt }] }) }))
+  on('agent.list', () => ({ value: [] }))
+  on('session.start', () => ({ cwd: '/r' }))
+  on('command.register', () => ({ value: { command: 'cruscotto' } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.close', () => ({ value: undefined }))
+  on('ui.status', () => ({ value: undefined }))
+  await $.session.start({ cwd: '/r', surface: 'terminal', isInteractive: true })
+
+  return async () => {
+    const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+    const row = await ui.find({ type: 'Text', text: /^oggi/ })
+    await ui.unmount()
+    const share = (row?.children ?? []).map(c => c as Run).find(c => /^\d+%$/.test((c.children ?? []).join('')))
+    return { text: row?.text, color: share?.props?.color }
+  }
+}
+
+test('limiti: la quota di oggi sul limite settimanale, dal primo valore letto nel giorno', async ($, on) => {
+  let used = 30
+  // This morning the week was at 22%, with 79 hours to its reset: four days of use, ~20% each.
+  const today = await todayRow($, on, { date: new Date(NOW).toDateString(), used: 22, at: NOW - 3 * 3_600_000 }, () => used)
+  expect(await today()).toEqual({ text: 'oggi     8% di ~20% al giorno', color: '#80CBC4' })
+
+  // Past the day's share: amber.
+  used = 60
+  expect(await today()).toEqual({ text: 'oggi     38% di ~20% al giorno', color: '#FFCC80' })
+})
+
+test('limiti: la quota riparte il giorno dopo, e quando la settimana si azzera', async ($, on) => {
+  let used = 60
+  // Yesterday's start is stale: today counts from what the week has reached, 40% left over four days.
+  const today = await todayRow($, on, { date: new Date(NOW - 24 * 3_600_000).toDateString(), used: 22, at: NOW - 24 * 3_600_000 }, () => used)
+  expect((await today()).text).toBe('oggi     0% di ~10% al giorno')
+  used = 65
+  expect((await today()).text).toBe('oggi     5% di ~10% al giorno')
+
+  // The week reset: the count starts over.
+  used = 4
+  expect((await today()).text).toBe('oggi     0% di ~24% al giorno')
+})
+
+test('limiti: senza il limite settimanale niente quota di oggi né avviso', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  host(on)
+  on('session.usage', () => ({
+    value: usage({ rateLimits: [{ kind: 'five_hour', percentUsed: 20, resetsAt: new Date(NOW + 2 * 3_600_000).toISOString() }] }),
+  }))
+  on('agent.list', () => ({ value: [] }))
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^5 ore/ }))?.text).toMatch(/  20%  →33%  ◷/)
+  expect(await ui.find({ type: 'Text', text: /^oggi/ })).toBeUndefined()
+  expect(await ui.find({ type: 'Text', text: /^⚠/ })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('limiti: nessuna proiezione a finestra appena aperta', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  host(on)
+  // 3% in the first 15 minutes of 5 hours would read as 60%: too early to say.
+  on('session.usage', () => ({
+    value: usage({ rateLimits: [{ kind: 'five_hour', percentUsed: 3, resetsAt: new Date(NOW + 4.75 * 3_600_000).toISOString() }] }),
+  }))
+  on('agent.list', () => ({ value: [] }))
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^5 ore/ }))?.text).toMatch(/   3% {8}◷/)
+  await ui.unmount()
+})
+
+/** A context of seven categories, 200k in all. */
+function sevenParts(on: On, percent: () => number) {
+  const sizes = [['Messages', 80_000], ['System tools', 40_000], ['MCP tools', 20_000], ['Skills', 20_000], ['Memory files', 20_000], ['Custom agents', 10_000], ['System prompt', 10_000]] as const
+  on('session.usage', (_, e) => ({
+    value: usage({
+      context: {
+        tokens: percent() * 2_000, window: 200_000, percent: percent(),
+        breakdown: e?.breakdown === undefined ? undefined : {
+          categories: sizes.map(([name, tokens]) => ({ name, tokens, color: 'x', isDeferred: false, kind: 'used' })),
+          mcpTools: [],
+        } as never,
+      },
+    }),
+  }))
+}
+
+/** The context bar's filled runs: each one's colour and cells. */
+async function ctxRuns($: Engine) {
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  const line = await ui.find({ type: 'Text', text: /^ctx/ })
+  await ui.unmount()
+  return (line?.children ?? [])
+    .map(c => ({ color: (c as Run).props?.color, cells: ((c as Run).children ?? []).join('') }))
+    .filter(r => r.cells.startsWith('━'))
+    .map(r => ({ color: r.color, cells: r.cells.length }))
+}
+
+test('contesto: le categorie oltre la quinta hanno il loro segmento e la loro riga', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  host(on)
+  sevenParts(on, () => 100)
+  on('agent.list', () => ({ value: [] }))
+  await measure($, on)
+
+  // Each segment its own share of the 30 cells: the fifth does not take what the hidden two hold.
+  expect((await ctxRuns($)).map(r => r.cells)).toEqual([12, 6, 3, 3, 3, 3])
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /■ altro/ }))?.text).toBe('      ■ altro    20k   10%')
+  await ui.unmount()
+})
+
+test('contesto: la barra divisa scorre una volta per ridisegno e pulsa mentre il turno lavora', async ($, on) => {
+  const clock = mock.clock(on, { now: NOW })
+  host(on)
+  let percent = 20
+  sevenParts(on, () => percent)
+  on('agent.list', () => ({ value: [] }))
+  on('turn.start', (_, e) => ({ turnId: e.turnId }))
+  await measure($, on)
+
+  const cells = async () => (await ctxRuns($)).reduce((n, r) => n + r.cells, 0)
+  expect(await cells()).toBe(6)
+  percent = 80
+  // A third of the way from 20 to 80: 41%, 12 cells of 30.
+  expect(await cells()).toBe(12)
+
+  await $.turn.start({ text: 'vai', turnId: 't' })
+  const heads = new Set<string | undefined>()
+  for (let i = 0; i < 2; i++) {
+    heads.add((await ctxRuns($)).at(-1)?.color)
+    await clock.advance(1_000)
+  }
+  expect(heads.has('#E0F2F1')).toBe(true)
+})
+
+/** A main turn at work, and the pane redraws the mod asks for. */
+async function atWork($: Engine, on: On) {
+  host(on)
+  on('session.usage', () => ({ value: usage() }))
+  on('agent.list', () => ({ value: [] }))
+  on('turn.start', (_, e) => ({ turnId: e.turnId }))
+  on('ui.blit', () => ({ value: {} }))
+  const seen = { redraws: 0 }
+  on('ui.invalidate', () => {
+    seen.redraws++
+    return { value: undefined }
+  })
+  await $.turn.start({ text: 'vai', turnId: 't' })
+  return seen
+}
+
+test('ridisegni: sul terminale una volta al secondo mentre lavora, la striscia va da sé', async ($, on) => {
+  const clock = mock.clock(on, { now: NOW })
+  const seen = await atWork($, on)
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await clock.advance(500)
+  expect(seen.redraws).toBe(0)
+  await clock.advance(600)
+  expect(seen.redraws).toBe(1)
+  await ui.unmount()
+})
+
+test('ridisegni: fitti dove la striscia vive dei ridisegni del pannello', async ($, on) => {
+  const clock = mock.clock(on, { now: NOW })
+  const seen = await atWork($, on)
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  await clock.advance(500)
+  expect(seen.redraws).toBeGreaterThanOrEqual(3)
+  await ui.unmount()
 })
 
 test('nessuna lettura: limiti, modello e token non disponibili', async ($, on) => {
@@ -239,6 +444,8 @@ test('cache: hit rate, ultimo turno e countdown fino alla scadenza', async ($, o
   cost = 0.62
   // 90k served by the cache, 8k written, 2k fresh: 90% hit.
   await $.turn.complete(closed('ok', undefined, spent(2_000, 1_200, 90_000, 8_000)))
+  // A subagent's prompt is not the main loop's cache: it changes neither the rate nor what was read.
+  await $.turn.complete(closed('', 'a1', spent(300_000, 10, 50_000, 0)))
 
   for (const surface of SURFACES) {
     const ui = await $.ui.mount({ ...PANE, surface })
@@ -290,7 +497,6 @@ test('dove vanno i token: solo il thread principale', async ($, on) => {
   for (const surface of SURFACES) {
     const ui = await $.ui.mount({ ...PANE, surface })
     expect(await ui.find({ type: 'Text', text: /Dove vanno i token/ })).toBeDefined()
-    await ui.press({ key: 'tab-token' })
     expect((await ui.find({ type: 'Text', text: /^output/ }))?.text).toBe('output   Bash  12k  ×1')
     expect((await ui.find({ type: 'Text', text: /^ +Read/ }))?.text).toBe('         Read   4k  ×4')
     expect((await ui.find({ type: 'Text', text: /^riletti/ }))?.text).toBe('riletti  register.tsx  ×4')
@@ -298,7 +504,7 @@ test('dove vanno i token: solo il thread principale', async ($, on) => {
   }
 })
 
-test('sotto-schede: costo e cache di default, i token con la scheda 2', async ($, on) => {
+test('sezioni: costo e token insieme, senza schede, quando il pannello ha le righe', async ($, on) => {
   mock.clock(on, { now: NOW })
   host(on)
   on('session.usage', () => ({ value: usage() }))
@@ -308,6 +514,25 @@ test('sotto-schede: costo e cache di default, i token con la scheda 2', async ($
 
   for (const surface of SURFACES) {
     const ui = await $.ui.mount({ ...PANE, surface })
+    expect(await ui.find({ type: 'Text', text: /^Costo e cache$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^Dove vanno i token$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^totale/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^output/ })).toBeDefined()
+    expect(await ui.find({ key: 'tab-token' })).toBeUndefined()
+    await ui.unmount()
+  }
+})
+
+test('sotto-schede in un pannello corto: costo e cache di default, i token con la scheda 2', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  host(on)
+  on('session.usage', () => ({ value: usage() }))
+  on('agent.list', () => ({ value: [] }))
+  on('tool.call', () => ({ result: {}, text: 'x'.repeat(4_000) }))
+  await $.tool.call({ tool: 'Bash', command: 'ls' })
+
+  for (const surface of SURFACES) {
+    const ui = await $.ui.mount({ ...PANE, surface, props: { ...PANE.props, scroll: { offset: 0, bodyRows: 12 } } })
     expect(await ui.find({ type: 'Text', text: /^totale/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /^output/ })).toBeUndefined()
     await ui.press({ key: 'tab-token' })
@@ -331,7 +556,6 @@ test('dove vanno i token: quello che il modello scrive', async ($, on) => {
   await $.tool.call({ tool: 'Write', file_path: '/r/b.ts', content: 'w'.repeat(80_000), agentId: 'a1' })
 
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  await ui.press({ key: 'tab-token' })
   expect((await ui.find({ type: 'Text', text: /^scritto/ }))?.text).toBe('scritto  Write  9k  ×1')
   expect((await ui.find({ type: 'Text', text: /^ +Edit +3k/ }))?.text).toBe('         Edit   3k  ×1')
   await ui.unmount()
@@ -356,7 +580,6 @@ test('dove vanno i token: il peso di un output rimandato a ogni richiesta, finch
   for (let i = 0; i < 10; i++) await step(undefined, 'high')
 
   let ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  await ui.press({ key: 'tab-token' })
   expect((await ui.find({ type: 'Text', text: /^peso/ }))?.text).toBe('peso     Bash npm test -- --verbose  8k ×10 ≈80k')
   expect((await ui.find({ type: 'Text', text: /tutti/ }))?.text).toBe('         tutti ≈100k')
   await ui.unmount()
@@ -387,7 +610,6 @@ test('dove vanno i token: la traccia del contesto turno per turno, la compattazi
 
   await $.turn.complete(closed('1'))
   let ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  await ui.press({ key: 'tab-token' })
   // One turn is not a trace yet.
   expect(await ui.find({ type: 'Text', text: /^turni/ })).toBeUndefined()
   await ui.unmount()
@@ -649,6 +871,7 @@ test('barra di stato: modello, contesto, cache, subagent, file e comandi', async
     })
   }
   await $.turn.complete(closed('ok', undefined, spent(500, 100, 9_000, 500)))
+  await $.turn.complete(closed('', 'a1', spent(90_000, 100, 0, 0)))
   // Two files, one of them edited twice and once by a subagent; two commands.
   await $.tool.call({ tool: 'Edit', file_path: '/r/a.ts', old_string: 'x', new_string: 'y' })
   await $.tool.call({ tool: 'Edit', file_path: '/r/a.ts', old_string: 'y', new_string: 'z', agentId: 'a1' })
@@ -1021,14 +1244,13 @@ test('tooltip: i riassunti mostrano tutto, terminati e server MCP', async ($, on
 
   for (const surface of SURFACES) {
     const ui = await $.ui.mount({ ...PANE, surface })
-    if (surface === SURFACES[0]) await ui.press({ key: 'tab-token' })
     expect((await ui.find({ type: 'Text', text: /^MCP/ }))?.text).toBe('MCP      Gmail  4k')
     expect((await ui.find({ type: 'Text', text: /altri$/ }))?.text).toBe('         +2 altri')
     expect(await card(ui, /^Gmail 4k\n/)).toBe('Gmail 4k\nDrive 4k\nCalendar 3k\nGamma 3k')
     expect(await card(ui, /^✓ task d2\n/)).toBe('✓ task d2\n✓ task d1')
-    // Each card right under its row: '+2 altri' is row 14, '+2 terminati' row 22.
-    expect((await ui.find({ type: 'Box', text: /^Gmail 4k\n/ }))?.props.top).toBe(15)
-    expect((await ui.find({ type: 'Box', text: /^✓ task d2\n/ }))?.props.top).toBe(23)
+    // Each card right under its row: with both sections shown '+2 altri' is row 17, '+2 terminati' row 25.
+    expect((await ui.find({ type: 'Box', text: /^Gmail 4k\n/ }))?.props.top).toBe(18)
+    expect((await ui.find({ type: 'Box', text: /^✓ task d2\n/ }))?.props.top).toBe(26)
     await ui.unmount()
   }
 })

@@ -1,5 +1,10 @@
 # Templates
 
+Contents:
+- [scope.md](#scopemd)
+- [backlog.md](#backlogmd)
+- [Worked example](#worked-example-greenfield-agent-alone-profile)
+
 ## scope.md
 
 ```markdown

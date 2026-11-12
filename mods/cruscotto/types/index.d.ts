@@ -19,7 +19,7 @@ export type TokenCounts = {
 
 /** What the model calls of this session cost, as their turns reported it. */
 export type TokenLedger = {
-  /** Every loop: the main one and the subagents. */
+  /** The main loop's turns alone: a subagent's prompt is not its cache. */
   total: TokenCounts
   /** The main loop's last completed turn, with what it cost in dollars when known. */
   last: (TokenCounts & { costUsd?: number }) | null

@@ -25,9 +25,16 @@ const SEGMENTS = [HEADER, '#B39DDB', AMBER, '#90CAF9', '#A5D6A7', SECONDARY]
 const LIMIT_LABEL_WIDTH = 8
 /** The time left before a reset, right-aligned: '≈6g 23h' at the widest. */
 const RESET_WIDTH = 7
-const WEEK_MS = 7 * 24 * 60 * 60_000
+const DAY_MS = 24 * 60 * 60_000
+const WEEK_MS = 7 * DAY_MS
+/** How long the windows with a known length last. */
+const WINDOW_MS: Record<string, number> = { five_hour: 5 * 60 * 60_000, seven_day: WEEK_MS }
+/** The share of a window that must have passed before its pace says anything. */
+const PACE_FROM = 0.1
 /** The `$.store` key of the last reset seen of each window. */
 const RESETS_KEY = 'resets'
+/** The `$.store` key of the week's use at the day's first reading. */
+const DAY_KEY = 'day'
 /** The windows that keep their row with a remembered reset when a reading leaves them out. */
 const KEPT_LIMITS = ['five_hour', 'seven_day']
 const BRANCH_REFRESH_MS = 30_000
@@ -35,7 +42,7 @@ const BREAKDOWN_REFRESH_MS = 60_000
 const STATUS_DEBOUNCE_MS = 200
 /** How long the cost of a turn just ended stays lit. */
 const FLASH_MS = 3_000
-/** Ticks: while something moves, while the cache counts down, and at rest. */
+/** Ticks: while a bar slides, while the work goes on or the cache counts down, and at rest. */
 const TICK_FAST = 120
 const TICK_SECOND = 1_000
 const TICK_IDLE = 30_000
@@ -88,7 +95,7 @@ const activity = atom({ plugin: 'cruscotto', key: 'activity' } as const, { files
 const ledger = atom(
   { plugin: 'cruscotto', key: 'ledger' } as const,
   { total: ZERO, last: null, lastMainAt: null, history: [], compactedSince: false },
-  { shape: 'ledger-2' },
+  { shape: 'ledger-3' },
 )
 const tools = atom(
   { plugin: 'cruscotto', key: 'tools' } as const,
@@ -150,6 +157,8 @@ let costBefore: number | undefined
 let statusTimer: Timer | undefined
 const shown = new Map<string, number>()
 let knownResets: Record<string, string> = {}
+/** The week's use at the first reading of `date`, taken at `at`: today's share counts from there. */
+let dayStart: { date: string; used: number; at: number } | undefined
 let bannerUntil = 0
 let filesBefore = 0
 let notifyAfterMs = NOTIFY_AFTER['30s'] as number
@@ -269,6 +278,33 @@ function rememberResets($: EngineInterface, limits: readonly SessionRateLimit[])
   void $.store.set(RESETS_KEY, knownResets).catch(() => {})
 }
 
+/**
+ * Where a window's use is heading at the pace so far: the percent at its
+ * reset and, when that is past 100, the moment it runs out. Undefined for a
+ * window of unknown length, or one too young to say.
+ */
+function pace(kind: string, used: number | undefined, resetsAt: string | undefined, now: number): { atReset: number; outAt?: number } | undefined {
+  const length = WINDOW_MS[kind]
+  if (length === undefined || used === undefined || resetsAt === undefined) return undefined
+  const elapsed = now - (Date.parse(resetsAt) - length)
+  if (elapsed < length * PACE_FROM || elapsed > length) return undefined
+  const atReset = Math.round((used / elapsed) * length)
+  return { atReset, outAt: atReset > 100 && used < 100 ? now + (elapsed * (100 - used)) / used : undefined }
+}
+
+/**
+ * The week's use at the day's first reading, kept in the store so every
+ * session of the day counts from the same point; a week that reset starts over.
+ */
+function dayStartFor($: EngineInterface, used: number, now: number): { used: number; at: number } {
+  const date = new Date(now).toDateString()
+  if (dayStart === undefined || dayStart.date !== date || used < dayStart.used) {
+    dayStart = { date, used, at: now }
+    void $.store.set(DAY_KEY, dayStart).catch(() => {})
+  }
+  return dayStart
+}
+
 function folderName(cwd: string): string {
   return cwd.split(/[\\/]/).filter(Boolean).pop() ?? cwd
 }
@@ -285,7 +321,9 @@ function clip(text: string, width: number): string {
 /** How fast the pane must redraw now. */
 function wantedTick(now: number): number {
   if (unseenTicks >= UNSEEN_TICKS) return TICK_IDLE
-  if (mainRunning || activeAgents > 0 || tweening || now < flashUntil) return TICK_FAST
+  // Off the terminal nothing repaints the strip in place: it moves with the pane's redraws.
+  if (tweening || (isScanning() && blitTimer === undefined)) return TICK_FAST
+  if (mainRunning || activeAgents > 0 || now < flashUntil) return TICK_SECOND
   if (now < bannerUntil || (cacheWarmUntil > 0 && now < cacheWarmUntil + 60_000)) return TICK_SECOND
   return TICK_IDLE
 }
@@ -530,6 +568,11 @@ export const register: Register = (on, options) => {
     if (stored !== null && typeof stored === 'object') {
       knownResets = Object.fromEntries(Object.entries(stored).filter((kv): kv is [string, string] => typeof kv[1] === 'string'))
     }
+    const day = await $.store.get(DAY_KEY).catch(() => undefined)
+    if (day !== null && typeof day === 'object') {
+      const { date, used, at } = day as Record<string, unknown>
+      if (typeof date === 'string' && typeof used === 'number' && typeof at === 'number') dayStart = { date, used, at }
+    }
     const { lastMainAt } = await read($, ledger)
     cacheWarmUntil = lastMainAt === null ? 0 : lastMainAt + cacheTtlMs
     tickMs = 0
@@ -707,8 +750,6 @@ export const register: Register = (on, options) => {
       await update($, done, () => ended)
       bannerUntil = now + BANNER_MS
       void announce($, ended)
-    } else {
-      await update($, ledger, l => ({ ...l, total: add(l.total, used) }))
     }
     schedule($, now)
     statusSoon($)
@@ -741,7 +782,9 @@ export const register: Register = (on, options) => {
     const barCells = clamp(width - 22, 10, 30)
     const limitCells = clamp(width - 44, 6, 16)
     const tick = Math.floor(now / TICK_FAST)
-    const pulse = Math.floor(now / 480) % 2 === 0
+    // By the second, as the pane redraws while the work goes on.
+    const pulse = Math.floor(now / TICK_SECOND) % 2 === 0
+    const orbit = Math.floor(now / TICK_SECOND)
 
     const rows: AgentRow[] = list.map(a => ({ ...a, ...known[a.id] }))
     // Most recent first, the ones still working ahead of the finished.
@@ -761,13 +804,11 @@ export const register: Register = (on, options) => {
         </Text>
       </Box>
     )
-    /** A bar of `cells`, the head cell glowing while `live`. */
-    const bar = (key: string, value: number, cells: number, color = threshold(value), live = false) => {
+    /** A bar of `cells`. */
+    const bar = (key: string, value: number, cells: number, color = threshold(value)) => {
       const filled = clamp(Math.round((tween(key, value) / 100) * cells), 0, cells)
-      const glow = live && filled > 0 && pulse
       return [
-        <Text color={color}>{'━'.repeat(glow ? filled - 1 : filled)}</Text>,
-        glow ? <Text color={GLOW}>━</Text> : '',
+        <Text color={color}>{'━'.repeat(filled)}</Text>,
         <Text color={BAR_EMPTY}>{'─'.repeat(cells - filled)}</Text>,
       ]
     }
@@ -847,41 +888,82 @@ export const register: Register = (on, options) => {
       ...usage.rateLimits,
       ...kept.map(kind => ({ kind })),
     ].sort((a, b) => (KEPT_LIMITS.indexOf(a.kind) + 1 || 99) - (KEPT_LIMITS.indexOf(b.kind) + 1 || 99))
-    const limits = windows.length === 0
+    const paced = windows.map(limit => {
+      const reset = resetFor(limit.kind, limit.resetsAt, now)
+      return { ...limit, reset, pace: pace(limit.kind, limit.percentUsed, reset.at, now) }
+    })
+    // Each row ends with where the window is heading by its reset: amber past 100%, red when it is already close.
+    const limits = paced.length === 0
       ? [<Text color={SECONDARY}>{NON_DISPONIBILE} (nessuna lettura ancora)</Text>]
-      : windows.map(limit => {
-          const reset = resetFor(limit.kind, limit.resetsAt, now)
-          const used = limit.percentUsed
-          return (
-            <Text wrap="truncate-end">
-              {`${(LIMIT_NAMES[limit.kind] ?? limit.kind).padEnd(LIMIT_LABEL_WIDTH)} `}
-              {used === undefined
-                ? <Text color={BAR_EMPTY}>{'─'.repeat(limitCells)}</Text>
-                : bar(`limit:${limit.kind}`, used, limitCells)}
-              {` ${(used === undefined ? '–' : `${Math.round(used)}%`).padStart(4)}  `}
-              <Text color={reset.isRemembered ? BAR_EMPTY : SECONDARY}>{resetText(reset.at, now, reset.isRemembered)}</Text>
+      : paced.map(({ kind, percentUsed: used, reset, pace: heading }) => (
+          <Text wrap="truncate-end">
+            {`${(LIMIT_NAMES[kind] ?? kind).padEnd(LIMIT_LABEL_WIDTH)} `}
+            {used === undefined
+              ? <Text color={BAR_EMPTY}>{'─'.repeat(limitCells)}</Text>
+              : bar(`limit:${kind}`, used, limitCells)}
+            {` ${(used === undefined ? '–' : `${Math.round(used)}%`).padStart(4)}`}
+            <Text color={heading === undefined || heading.atReset < 100 ? SECONDARY : (used ?? 0) >= 80 ? RED : AMBER}>
+              {(heading === undefined ? '' : `→${Math.min(heading.atReset, 999)}%`).padStart(6)}
             </Text>
-          )
-        })
+            {'  '}
+            <Text color={reset.isRemembered ? BAR_EMPTY : SECONDARY}>{resetText(reset.at, now, reset.isRemembered)}</Text>
+          </Text>
+        ))
+    // Today's share of the week: what was used since the day's first reading, against an even
+    // split of what the week had left then over the days to its reset.
+    const week = paced.find(l => l.kind === 'seven_day')
+    if (week?.percentUsed !== undefined && week.reset.at !== undefined) {
+      const start = dayStartFor($, week.percentUsed, now)
+      const share = (100 - start.used) / Math.max(1, Math.ceil((Date.parse(week.reset.at) - start.at) / DAY_MS))
+      const usedToday = week.percentUsed - start.used
+      limits.push(
+        <Text wrap="truncate-end">
+          {'oggi     '}
+          <Text color={usedToday > share ? AMBER : HEADER}>{`${Math.round(usedToday)}%`}</Text>
+          <Text color={SECONDARY}>{` di ~${Math.round(share)}% al giorno`}</Text>
+        </Text>,
+      )
+    }
+    // The window that runs out first at this pace, and how long before its reset.
+    const first = paced
+      .filter(l => l.pace?.outAt !== undefined)
+      .sort((a, b) => (a.pace?.outAt ?? 0) - (b.pace?.outAt ?? 0))[0]
+    if (first?.pace?.outAt !== undefined && first.reset.at !== undefined) {
+      const out = new Date(first.pace.outAt)
+      limits.push(
+        <Text wrap="truncate-end" color={(first.percentUsed ?? 0) >= 80 ? RED : AMBER}>
+          {`⚠ ${LIMIT_NAMES[first.kind] ?? first.kind} finisce ${WEEKDAYS[out.getDay()]} ${clockTime(out.toISOString())}`}
+          {` · ${duration(Date.parse(first.reset.at) - first.pace.outAt)} prima del reset`}
+        </Text>,
+      )
+    }
 
     // Context: the window as a bar of its categories once a summary is known.
-    const parts = shape === null ? [] : shape.parts.slice(0, TOP_SEGMENTS)
+    const top = shape === null ? [] : shape.parts.slice(0, TOP_SEGMENTS)
     const partsTotal = shape === null ? 0 : shape.parts.reduce((n, p) => n + p.tokens, 0)
+    const rest = partsTotal - top.reduce((n, p) => n + p.tokens, 0)
+    // The categories past the top ones share a segment and a legend row of their own.
+    const parts = rest > 0 ? [...top, { name: 'altro', tokens: rest }] : top
     let contextBar
     if (percent === undefined || used === undefined) {
       contextBar = <Text color={SECONDARY}>Token: {NON_DISPONIBILE} (finestra {tokens(window)})</Text>
     } else {
-      let bars = bar('ctx', percent, barCells, threshold(percent), mainRunning)
-      if (parts.length > 0 && partsTotal > 0) {
-        const filled = clamp(Math.round((tween('ctx', percent) / 100) * barCells), 0, barCells)
-        let left = filled
-        bars = parts.map((p, i) => {
-          const cells = i === parts.length - 1 ? left : Math.min(left, Math.round((p.tokens / partsTotal) * filled))
-          left -= cells
-          return <Text color={SEGMENTS[i % SEGMENTS.length]}>{'━'.repeat(cells)}</Text>
-        })
-        bars.push(<Text color={BAR_EMPTY}>{'─'.repeat(barCells - filled)}</Text>)
-      }
+      // One easing a draw, whole or by category; the head cell glows while the turn works.
+      const filled = clamp(Math.round((tween('ctx', percent) / 100) * barCells), 0, barCells)
+      const glow = mainRunning && filled > 0 && pulse
+      const solid = glow ? filled - 1 : filled
+      let left = solid
+      const bars = [
+        ...(parts.length === 0
+          ? [<Text color={threshold(percent)}>{'━'.repeat(solid)}</Text>]
+          : parts.map((p, i) => {
+              const cells = i === parts.length - 1 ? left : Math.min(left, Math.round((p.tokens / partsTotal) * solid))
+              left -= cells
+              return <Text color={SEGMENTS[i % SEGMENTS.length]}>{'━'.repeat(cells)}</Text>
+            })),
+        glow ? <Text color={GLOW}>━</Text> : '',
+        <Text color={BAR_EMPTY}>{'─'.repeat(barCells - filled)}</Text>,
+      ]
       contextBar = (
         <Text wrap="truncate-end">
           {'ctx   '}{bars} <Text color={threshold(percent)}>{`${percent}%`}</Text>
@@ -915,7 +997,7 @@ export const register: Register = (on, options) => {
     )
     let cacheClock = null
     if (mainRunning) {
-      cacheClock = <Text color={HEADER}>{`         ${ORBIT[Math.floor(now / 240) % ORBIT.length]} cache in uso`}</Text>
+      cacheClock = <Text color={HEADER}>{`         ${ORBIT[orbit % ORBIT.length]} cache in uso`}</Text>
     } else if (spent.lastMainAt !== null) {
       const left = spent.lastMainAt + cacheTtlMs - now
       cacheClock = left > 0
@@ -1046,9 +1128,17 @@ export const register: Register = (on, options) => {
     }
     const spending = [...traceRows, ...toolRows, ...writtenRows, ...weightRows, ...rereadRows, ...mcpRows]
 
-    // The sub-tabs: one of the two sections at a time, the tab row hidden when both are empty.
+    // Both sections when the pane has the rows for them, else one at a time under the sub-tabs;
+    // nothing when both are empty.
     const hasTabs = costSection.length > 0 || spending.length > 0
     const tabRows = tab === 'costo' ? costSection : spending
+    const sections = [
+      { label: 'Costo e cache', rows: costSection },
+      { label: 'Dove vanno i token', rows: spending },
+    ].filter(s => s.rows.length > 0)
+    const baseRows = 2 + (doneRow ? 1 : 0) + 2 + limits.length + 2 + 2 + parts.length + 2 + active.length
+    const bothRows = sections.reduce((n, s) => n + 2 + s.rows.length, 0)
+    const showsBoth = baseRows + bothRows + 1 <= room
     const tabButton = (value: 'costo' | 'token', label: string) => (
       <Button key={`tab-${value}`} plain onPress={() => update($, subTab, () => value)}>
         <Text bold={tab === value} color={tab === value ? HEADER : SECONDARY}>{`[${label}]`}</Text>
@@ -1056,8 +1146,7 @@ export const register: Register = (on, options) => {
     )
 
     // Subagents: as many finished ones as the pane has rows left for.
-    const fixedRows = 2 + (doneRow ? 1 : 0) + 2 + limits.length + 2 + 2 + parts.length
-      + (hasTabs ? 2 + Math.max(1, tabRows.length) : 0) + 2 + active.length
+    const fixedRows = baseRows + (!hasTabs ? 0 : showsBoth ? bothRows : 2 + Math.max(1, tabRows.length))
     const finishedShown = clamp(room - fixedRows - 1, 0, FINISHED_MAX)
     const modelWidth = Math.min(
       MODEL_WIDTH_MAX,
@@ -1067,7 +1156,7 @@ export const register: Register = (on, options) => {
     const agentRows = [...active, ...finished.slice(0, finishedShown)].map(a => {
       const running = ACTIVE.includes(a.status)
       const { icon, color } = AGENT_ICONS[a.status]
-      const shownIcon = a.status === 'running' ? ORBIT[(Math.floor(now / 240) + a.id.length) % ORBIT.length] : icon
+      const shownIcon = a.status === 'running' ? ORBIT[(orbit + a.id.length) % ORBIT.length] : icon
       const effortText = a.effort === undefined ? '–' : (EFFORT_SHORT[a.effort] ?? String(a.effort))
       const time = a.startedAt === undefined ? '–' : duration((a.endedAt ?? now) - a.startedAt)
       const modelText = a.model === undefined ? '–' : shortModel(a.model)
@@ -1107,7 +1196,12 @@ export const register: Register = (on, options) => {
     )
     put(contextBar)
     ;(legend ?? []).forEach(row => put(row))
-    if (hasTabs) {
+    if (showsBoth) {
+      for (const section of sections) {
+        put(<Box marginTop={1}><Text bold color={HEADER}>{section.label}</Text></Box>, 2)
+        section.rows.forEach(row => put(row))
+      }
+    } else if (hasTabs) {
       put(
         <Box marginTop={1} flexDirection="row" columnGap={2}>
           {tabButton('costo', 'Costo e cache')}

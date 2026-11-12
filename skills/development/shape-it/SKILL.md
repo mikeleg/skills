@@ -59,7 +59,7 @@ If the user answers with a wall of text, extract decisions, restate them as bull
 
 ## 3. Scope: walking skeleton + riskiest assumption
 
-The method, since the user does not have one and asked for a proposal:
+The method:
 
 - **Walking skeleton**: the thinnest path that goes end-to-end through the core job – from the user's trigger to the outcome they care about – touching every layer that the real thing will need (UI → API → data → external service, whatever applies). Ugly is fine. Incomplete is fine. Not end-to-end is not fine.
 - **Riskiest assumption first**: route the skeleton deliberately through the thing most likely to kill the idea (the flaky third-party API, the unclear data model, the UX nobody has validated). If the skeleton proves that, everything else is incremental.

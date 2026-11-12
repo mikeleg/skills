@@ -86,7 +86,7 @@ Each skill also works on its own: `implement` accepts any ticket or spec, `shape
 
 | Skill | What it does | Requirements |
 | --- | --- | --- |
-| `log-task-hours` | Logs actual hours on an Azure DevOps work item as a child Task, inferring ticket, hours and title from your Claude Code sessions. Call it with `/mikeleg-skills:log-task-hours [ticket-id]` or `/kowalski:ore`. | Azure CLI with the `azure-devops` extension, Python. Claude Code (reads the `~/.claude/projects` session logs). The organization (`engagelabsit`) and the assignee are set in the skill: change them for yours. |
+| `log-task-hours` | Logs actual hours on an Azure DevOps work item as a child Task, inferring ticket, hours and title from your Claude Code sessions. Call it with `/mikeleg-skills:log-task-hours [ticket-id]` or `/kowalski:ore`. | Azure CLI with the `azure-devops` extension, Python. Claude Code (reads the `~/.claude/projects` session logs). Organization and assignee come from the Azure CLI defaults (`az devops configure`, `az account show`). |
 | `reply-draft` | Drafts a reply to a customer email as an Outlook draft (never sent), using the thread, your past replies and the current work as context. Call it with `/mikeleg-skills:reply-draft [sender, subject or work item id]` or `/kowalski:email`. | Microsoft 365 connector (Outlook). Optional: Azure CLI to read work items. |
 
 ### Content
@@ -113,8 +113,10 @@ Requirements: none to analyze pasted text. To read tickets: Azure CLI with the `
 
 A side pane in Claude Code, kept to one tab. It shows:
 
-- usage limits and the context split by category
-- prompt-cache hit rate and the countdown before the cache goes cold
+- usage limits (5 hours, 7 days), each with where it's heading by its reset at the pace so far, and a warning naming the limit that runs out first and how long before its reset
+- today's share of the weekly limit: what you used since the day's first reading, against an even split of what was left over the days to the reset
+- the context split by category
+- prompt-cache hit rate of the main thread and the countdown before the cache goes cold
 - where your tokens go in the main thread: a turn-by-turn trace of the context, tool outputs, what the model writes, the outputs that weigh most on every request, files read again, MCP schemas
 - subagents with their tokens
 

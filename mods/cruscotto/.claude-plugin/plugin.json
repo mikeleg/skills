@@ -1,6 +1,6 @@
 {
   "name": "cruscotto",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Pannello laterale con limiti d'uso, contesto, cache, dove vanno i token e subagent (/cruscotto).",
   "license": "MIT",
   "author": {
