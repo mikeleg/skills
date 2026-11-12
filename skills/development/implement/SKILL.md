@@ -26,7 +26,7 @@ A seam is the public interface a test goes through: an HTTP endpoint, a command,
 
 Read `${CLAUDE_SKILL_DIR}/../tdd/SKILL.md`, with the `tests.md` and `mocking.md` next to it, and follow its red → green → refactor loop and its rules. If that file isn't there, use the `tdd` skill if this session lists it; otherwise follow the loop below on its own and say so in the final report. The seams are the ones agreed in step 1. Here the loop runs once per acceptance criterion, in order:
 
-1. Write one test at its seam, named after the behavior ("rejects an expired token", not "test_validate_2").
+1. If the code this criterion will change is hard to change, refactor it first (preparatory refactor, see the tdd rules). Then write one test at its seam, named after the behavior ("rejects an expired token", not "test_validate_2").
 2. Run it. It must fail, and for the reason the criterion describes. If it passes, or fails for an unrelated reason, fix the test before touching production code.
 3. Write the least code that makes it pass. No anticipating the next criterion.
 4. Run it again, plus typechecking. Green, then refactor as the tdd skill says, then next criterion.
@@ -66,7 +66,7 @@ The loop already refactored each cycle; this is the refactor pass over the whole
 
 ## 6. Review
 
-Use `/code-review low` to review the work, then read `${CLAUDE_SKILL_DIR}/../kets-review/SKILL.md` and follow it on the same change for the design regressions it introduces (if that file isn't there, skip it and say so in the final report). Fix the issues they raise that are real; ignore the ones that aren't, and say why. Don't apply the opportunities kets-review lists: copy them into the final report. Re-run the full test suite after any fix.
+Use `/code-review low` to review the work, then read `${CLAUDE_SKILL_DIR}/../kets-review/SKILL.md` and follow it on the same change for the design regressions it introduces (if that file isn't there, skip it and say so in the final report). Fix the issues they raise that are real; ignore the ones that aren't, and say why. Apply the opportunities kets-review lists with effort small, as refactors; copy the medium and large ones into the final report. Re-run the full test suite after any fix.
 
 ## 7. Guard the floor
 
@@ -99,5 +99,5 @@ Short, evidence over adjectives:
 - Duplications between slices that were flagged, and what the user chose.
 - Mutation result from step 3.
 - Spec check findings, what you did with them, and anything removed as unrequested.
-- /code-review and kets-review findings fixed and ignored (with why), and the kets-review opportunities.
+- /code-review and kets-review findings fixed and ignored (with why), the kets-review opportunities applied, and the ones left.
 - Floor hits, if any, and their justification.
