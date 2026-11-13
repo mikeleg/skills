@@ -20,7 +20,7 @@ Turn one unit of agreed work (a slice from `docs/backlog/<feature>/backlog.md`, 
 Tests go only at agreed seams; tdd says what a seam is and how to propose one.
 
 - If the slice lists **Seams** (shape-it writes them), they are already agreed: map each acceptance criterion to a seam and go.
-- If it doesn't, propose them in one message as tdd says, a seam and a test for each acceptance criterion. Wait for the user's ok. This is the only planned stop; the other one is a slice that duplicates another (see the Duplication rule in codebase-design).
+- If it doesn't, propose them in one message as tdd says, a seam and a test for each acceptance criterion. Wait for the user's ok. This is the only planned stop; the one unplanned stop is a slice that duplicates another (see the Duplication rule in codebase-design).
 
 ## 2. Build it with tdd, one criterion at a time
 

@@ -28,7 +28,7 @@ az boards work-item type list --project "<project>" -o table
 | Backlog | Azure DevOps |
 |---|---|
 | Feature / MVP | One Feature (or Epic in Basic) titled `<name>`. Description = link to scope.md + the In/Out lists. |
-| Slice | One story/PBI titled `S<N> · <title>`, **Parent** = the Feature. Description = Why + Implementation notes. **Acceptance Criteria field** (`Microsoft.VSTS.Common.AcceptanceCriteria`) = the AC list. |
+| Slice | One story/PBI titled `S<N> · <title>`, **Parent** = the Feature. Description = Why + Seams + Implementation notes (whichever the slice has). **Acceptance Criteria field** (`Microsoft.VSTS.Common.AcceptanceCriteria`) = the AC list. |
 | Size | `Microsoft.VSTS.Scheduling.StoryPoints` if the team uses points (S=2, M=5 is a sane default; ask if unsure); otherwise put Size in the description. |
 | Blocked by | `Predecessor` / `Successor` link: the blocker is the predecessor. |
 | Later section | Not published. |

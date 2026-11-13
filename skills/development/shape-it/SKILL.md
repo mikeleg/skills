@@ -142,7 +142,8 @@ Final message, short:
 - Where the files are.
 - Which slice to start with and why (it is the skeleton).
 - Any open risk that was not prototyped.
-- That implementation is a separate skill/flow; do not start implementing unless asked.
+- That implementation is a separate skill/flow (`implement`); do not start implementing unless asked.
+- Optional next step: `estimate` gives the agentic work hours of the backlog, e.g. for a customer quote.
 
 ---
 

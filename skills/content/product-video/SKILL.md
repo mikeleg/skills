@@ -18,7 +18,7 @@ Rules that emerged from the user's corrections. Apply them **from the first vers
 - **CTA: never the link to the app** if users cannot sign up on their own. Use "Richiedi una demo" ("Request a demo") + the site's contact page, after checking that the anchor exists (`curl` + grep; in SPAs look for the id in the JS bundle).
 
 ## Voice
-- Classic TTS voices (standard Edge/Azure, Piper) are **too robotic** for the user. Default: **Gemini TTS** (`gemini-3.8-flash-tts` or newer, list the models with `GET v1beta/models`) with a voice chosen from samples (e.g. Achird, friendly male). Before choosing, generate 3–4 samples on the same text and have the user pick.
+- Classic TTS voices (standard Edge/Azure, Piper) are **too robotic** for the user. Default: **Gemini TTS** (`gemini-3.8-flash-tts` or newer, list the models with `GET v1beta/models`) with a voice chosen from samples (e.g. Achird, friendly male). Before choosing, generate 3–4 samples on the same text and have the user pick (each sample counts against the daily quota below).
 - "Claude's voice" is not available as an API: say so right away and propose alternatives.
 - Gemini recipe (traps already paid for):
   - Key from `GEMINI_API_KEY`; on Windows after `setx` the current session does not see it: read it from the registry (`HKCU\Environment`). Never print it or write it to files.
@@ -49,7 +49,7 @@ Rules that emerged from the user's corrections. Apply them **from the first vers
 - Reusing an already cut track (e.g. Brand Studio's `music.wav`: 120.000 s, drop at 107.17 s): **do not re-cut it**, design the timeline around it (CTA at frame 3210, total 3600). First measure the drop position (RMS per second) and read the docstring of the cutting script: the README may still state the old length.
 
 ## Voice-to-image synchronization
-- Each highlight enters ~0.2 s (≈7 frames) **before** the word that names it and stays ≥1 s. Measure word timings on the waveform, not by estimate.
+- Each highlight enters ~0.2 s (≈7 frames) **before** the word that names it and stays ≥1 s. Measure word timings on the waveform (see the RMS-envelope method in Voice), not by guessing from the text; say which are still estimates.
 - If the words of a list are too close together for readable highlights, lengthen the screen, split the sentence into two clips and add short pauses (~0.25 s) **in the true silences**.
 - The "click" effects follow the highlights' entrance: retime them when you change the timings.
 

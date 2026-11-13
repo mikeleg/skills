@@ -9,7 +9,7 @@ Judge the change, not the project. Measure it against the architecture the proje
 
 ## 1. Target
 
-- Default: the current branch's diff against its base (merge-base with the default branch), uncommitted changes included.
+- Default: the current branch's diff against its base (merge-base with the default branch), uncommitted changes included, new untracked files too (a plain `git diff` misses them; `git add -N` shows them without staging).
 - Also accepts a PR number (read it with `gh pr diff` or `az repos pr show`), a branch, or a path.
 - Empty diff: say so and stop.
 
@@ -59,11 +59,11 @@ This rule is what makes the review usable on old codebases.
 
 Prefer the smallest refactoring move from `codebase-design` that removes the problem, and name it in the finding's Fix line. Look actively for code judo: when it exists it is the best move.
 
-Never propose: an architecture migration (introducing DDD, layers or CQRS where the project doesn't have them); renaming or reformatting outside the change.
+Never propose: an architecture migration (introducing DDD, layers or CQRS where the project doesn't have them); renaming or reformatting outside the change. Both are project decisions, not fixes to this change, and they bury the real diff.
 
 ## 6. Verify before reporting
 
-Every finding cites `file:line`, the concrete signal, why it is a problem here (the consequence for whoever changes this code next), and the remedy. Re-read the code; drop any finding you can't point to. Skip what `/code-review` or `/simplify` already covers.
+Every finding cites `file:line`, the concrete signal, why it is a problem here (the consequence for whoever changes this code next), and the remedy. Re-read the code; drop any finding you can't point to.
 
 ## 7. Report
 
@@ -73,9 +73,9 @@ Rules:
 
 - **Verdict** first. "fixes needed" when a reported P1 or P2 finding is neither fixed nor justified with a real technical reason; P3 findings and opportunities never block. Passing tests is not a reason to approve.
 - **Effort** is what the fix takes the agent that will make it, not a person's time: **small** = one place in one file, and the existing tests already cover it; **medium** = several files or call sites, or tests to add or change; **large** = changes an interface used elsewhere, crosses modules or layers, or needs a decision from the user first.
-- **Fix first**: 1-3 moves with the most impact for the least work, picked across findings and opportunities. Point to the finding or opportunity by its number instead of repeating it.
+- **Fix first**: 1-3 moves with the most impact for the least work, picked across findings and opportunities. Point to the finding (1, 2...) or opportunity (O1, O2...) by its number instead of repeating it.
 - **Findings** (introduced or worsened) are numbered, so the user can say "fix 2". Order by impact over effort: the priority gives the impact, the effort reorders, so a small P2 comes before a large P1. P1: all of them. P2: at most 5, the smallest effort first. P3: at most 3, only small ones, in the "Minor" line.
-- **Opportunities**: at most 3, pre-existing in the touched code, chosen by payoff over effort. Weigh payoff by how often the file changes: `git log --since="12 months ago" --format= --name-only -- <file> | wc -l`; debt in a file that changes often pays off more. The review only lists them: it never applies them or opens tickets (implement applies the small ones).
+- **Opportunities**: at most 3, numbered O1, O2, O3, pre-existing in the touched code, chosen by payoff over effort. Weigh payoff by how often the file changes: `git log --since="12 months ago" --format= --name-only -- <file> | wc -l`; debt in a file that changes often pays off more. The review only lists them: it never applies them or opens tickets (implement applies the small ones).
 - One sentence per bullet, no paragraphs. A code snippet only when the signal can't be shown otherwise, at most 3 lines.
 - Leave out empty sections and lines ("Minor", "Left out", "Opportunities") instead of writing "none".
 
