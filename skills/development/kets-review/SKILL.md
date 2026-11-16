@@ -1,17 +1,28 @@
 ---
 name: kets-review
-description: Review a change (current diff, branch, PR or path) for the design regressions it introduces - spaghetti code and related smells, logic in the wrong place, duplicates of existing helpers, weaker types, pass-through wrappers - judged against the project's own architecture, on any stack and any age of codebase. Lists at most 3 improvement opportunities in the touched code without applying them. Complements /code-review (bugs). Use when the user asks for a design, quality or structure review of a change, a spaghetti check, "/kets-review", or when implement reaches its review step.
+description: Review a change (current diff, branch, PR or path) for the design regressions it introduces, or the whole project on request ("project") - spaghetti code and related smells, logic in the wrong place, duplicates of existing helpers, weaker types, pass-through wrappers - judged against the project's own architecture, on any stack and any age of codebase. Lists at most 3 improvement opportunities in the touched code without applying them. Complements /code-review (bugs). Use when the user asks for a design, quality or structure review of a change, a spaghetti check, "/kets-review", or when implement reaches its review step.
 ---
 
 # Kets Review
 
-Judge the change, not the project. Measure it against the architecture the project has, not an ideal one. This skill complements `/code-review` (correctness bugs) and `/simplify` (local cleanups): don't repeat their findings. Use the vocabulary of `${CLAUDE_SKILL_DIR}/../codebase-design/SKILL.md`, if that file is there (module, interface, seam, depth, deletion test, refactoring moves).
+Judge the change, not the project, unless the project mode is asked for (step 1). Measure it against the architecture the project has, not an ideal one. This skill complements `/code-review` (correctness bugs) and `/simplify` (local cleanups): don't repeat their findings. Use the vocabulary of `${CLAUDE_SKILL_DIR}/../codebase-design/SKILL.md`, if that file is there (module, interface, seam, depth, deletion test, refactoring moves).
 
 ## 1. Target
 
-- Default: the current branch's diff against its base (merge-base with the default branch), uncommitted changes included, new untracked files too (a plain `git diff` misses them; `git add -N` shows them without staging).
+Two modes: the change (default) or the whole project (only when asked).
+
+**Change (default).**
+
+- The current branch's diff against its base (merge-base with the default branch), uncommitted changes included, new untracked files too (a plain `git diff` misses them; `git add -N` shows them without staging).
 - Also accepts a PR number (read it with `gh pr diff` or `az repos pr show`), a branch, or a path.
-- Empty diff: say so and stop.
+- Empty diff: say so, suggest the project mode, and stop. Never switch to it on your own.
+- Scope: only the files in the diff. Judge the changed lines and the function or class they sit in; never sweep the rest of the project. Other files are read only for the yardstick in step 2 and for targeted searches (e.g. an existing copy of a changed block).
+
+**Project.** When the argument is `project` or `progetto` (optionally followed by a folder), or the user asks to review the whole project or codebase.
+
+- Target: the whole repo, or that folder.
+- Don't read everything, 80/20: review the hotspots, the 10 files changed most often in the last 12 months (`git log --since="12 months ago" --format= --name-only -- <folder> | sort | uniq -c | sort -rn`), skipping generated, vendored, lock and test-data files. Name them in the report's "Reviewed" line.
+- There is no change, so step 3 doesn't apply: every problem is a finding tagged `existing`. The report has no verdict and no Opportunities section; the P1/P2/P3 limits of step 7 stay.
 
 ## 2. Learn the project's conventions first
 

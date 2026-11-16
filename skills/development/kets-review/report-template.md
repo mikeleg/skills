@@ -9,7 +9,7 @@ Reviewed: <target, files, lines changed>. Yardstick: <how the project is organiz
 1. <the move, one imperative sentence> (finding 2, or opportunity O1) · `file:line` · effort <small | medium | large>
 
 ### Findings
-**1. <the problem in plain words, at most ~10 words>** · P1 <smell> · <introduced | worsened> · effort <small | medium | large>
+**1. <the problem in plain words, at most ~10 words>** · P1 <smell> · <introduced | worsened | existing> · effort <small | medium | large>
 - Where: `file:line`
 - What happens: <the concrete signal>
 - Why it matters: <the consequence for whoever changes this code next>
