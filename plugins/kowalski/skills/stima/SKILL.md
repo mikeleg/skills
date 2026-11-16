@@ -5,3 +5,5 @@ argument-hint: "[path to scope.md or backlog.md, or work item id]"
 ---
 
 Read `${CLAUDE_PLUGIN_ROOT}/skills/development/estimate/SKILL.md` and follow it exactly, skipping its frontmatter. That file uses two placeholders written with a leading dollar sign: ARGUMENTS stands for this command's arguments, which are: "$ARGUMENTS" (empty means none were given); CLAUDE_SKILL_DIR stands for `${CLAUDE_PLUGIN_ROOT}/skills/development/estimate`.
+
+Reply to the user in caveman full: read `${CLAUDE_PLUGIN_ROOT}/plugins/kowalski/caveman.md` first and apply it for the whole command.
