@@ -663,8 +663,8 @@ test('subagent: tempi, token e stato', async ($, on) => {
   for (const surface of SURFACES) {
     const ui = await $.ui.mount({ ...PANE, surface })
     expect((await ui.find({ type: 'Text', text: /^Subagent/ }))?.text).toMatch(/^Subagent 2 attivi · 2 totali ─+$/)
-    expect((await ui.find({ type: 'Text', text: /task a1/ }))?.text).toMatch(new RegExp(`^${ORBIT} opus low     6m    –  task a1$`))
-    expect((await ui.find({ type: 'Text', text: /task a2/ }))?.text).toMatch(new RegExp(`^${ORBIT} opus –       1m    –  task a2$`))
+    expect((await ui.find({ type: 'Text', text: /task a1/ }))?.text).toMatch(new RegExp(`^${ORBIT} opus 4.1 low     6m    –  task a1$`))
+    expect((await ui.find({ type: 'Text', text: /task a2/ }))?.text).toMatch(new RegExp(`^${ORBIT} opus 4.1 –       1m    –  task a2$`))
     await ui.unmount()
   }
 
@@ -673,7 +673,7 @@ test('subagent: tempi, token e stato', async ($, on) => {
   await $.turn.complete(closed('', 'a2', spent(1_000, 2_000, 10_000, 1_000)))
   await clock.advance(10 * 60_000)
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect((await ui.find({ type: 'Text', text: /task a2/ }))?.text).toBe('✓ opus –       1m  14k  task a2')
+  expect((await ui.find({ type: 'Text', text: /task a2/ }))?.text).toBe('✓ opus 4.1 –       1m  14k  task a2')
   expect((await ui.find({ type: 'Text', text: /^Subagent/ }))?.text).toMatch(/^Subagent 1 attivi · 2 totali · 14k ─+$/)
   await ui.unmount()
 })
@@ -688,7 +688,7 @@ test('il modello principale arriva dal turno completato', async ($, on) => {
   await $.turn.complete(closed('ok', undefined, spent(1, 1, 0, 0, 'claude-sonnet-4-5')))
 
   const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
-  expect((await ui.find({ type: 'Text', text: /· effort/ }))?.text).toBe('sonnet · effort non disponibile')
+  expect((await ui.find({ type: 'Text', text: /· effort/ }))?.text).toBe('sonnet 4.5 · effort non disponibile')
   await ui.unmount()
 })
 
@@ -790,7 +790,7 @@ test('effort principale dal turn.step, non da quello dei subagent', async ($, on
   await ui.unmount()
 })
 
-test('nomi dei modelli senza versione; alias e formati ignoti restano', async ($, on) => {
+test('nomi dei modelli con versione; alias e formati ignoti restano', async ($, on) => {
   mock.clock(on, { now: NOW })
   host(on)
   on('session.usage', () => ({ value: usage() }))
@@ -798,10 +798,11 @@ test('nomi dei modelli senza versione; alias e formati ignoti restano', async ($
   on('turn.complete', () => ({ text: '' }))
 
   const cases = [
-    ['claude-sonnet-4-5-20250929', 'sonnet'],
-    ['claude-opus-5-5', 'opus'],
-    ['claude-opus-4-1[1m]', 'opus'],
-    ['claude-fable-5-1', 'fable'],
+    ['claude-sonnet-4-5-20250929', 'sonnet 4.5'],
+    ['claude-opus-5-5', 'opus 5.5'],
+    ['claude-opus-4-1[1m]', 'opus 4.1'],
+    ['claude-fable-5-1', 'fable 5.1'],
+    ['claude-haiku-4-5', 'haiku 4.5'],
     ['sonnet', 'sonnet'],
     ['claude-3-5-sonnet-20241022', 'claude-3-5-sonnet-20241022'],
   ] as const
@@ -880,7 +881,7 @@ test('barra di stato: modello, contesto, cache, subagent, file e comandi', async
   await $.tool.call({ tool: 'Bash', command: 'pwd', agentId: 'a2' })
   await clock.advance(250)
 
-  expect(status.at(-1)).toMatch(/^✓ \d\d:\d\d · opus · ctx 41% · cache 90% · agenti 3 sonnet, haiku · ✎2 ⚡2$/)
+  expect(status.at(-1)).toMatch(/^✓ \d\d:\d\d · opus 5.5 · ctx 41% · cache 90% · agenti 3 sonnet 4.5, haiku 4.5 · ✎2 ⚡2$/)
 })
 
 test('barra di stato: una raffica di chiamate, un solo aggiornamento', async ($, on) => {

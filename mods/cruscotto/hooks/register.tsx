@@ -186,11 +186,11 @@ function countdown(ms: number): string {
   return `${Math.floor(seconds / 60)}:${pad2(seconds % 60)}`
 }
 
-/** 'claude-sonnet-4-5-20250929' -> 'sonnet': no version; aliases and unknown formats stay as they are. */
+/** 'claude-sonnet-4-5-20250929' -> 'sonnet 4.5'; aliases and unknown formats stay as they are. */
 function shortModel(id: string): string {
   const stripped = id.replace(/^claude-/, '').replace(/\[[^\]]*\]$/, '').replace(/-\d{8}$/, '')
-  const [, family] = /^([a-z]+)-\d+(?:-\d+)*$/.exec(stripped) ?? []
-  return family ?? id
+  const [, family, version] = /^([a-z]+)-(\d+(?:-\d+)*)$/.exec(stripped) ?? []
+  return family ? `${family} ${version.replace(/-/g, '.')}` : id
 }
 
 function tokens(n: number): string {
