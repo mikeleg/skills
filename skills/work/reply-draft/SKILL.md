@@ -24,6 +24,6 @@ Prepare a reply draft in Outlook through the Microsoft 365 connector. The draft 
 4. **Create the draft**:
    - `outlook_create_reply_all_draft` if the original has recipients other than the user (To/Cc); otherwise `outlook_create_reply_draft`.
    - Body as HTML (`<p>`, `<br>`, `<ul>`/`<li>`, allowed tags only), `bodyType: html`.
-   - NEVER send: do not call `outlook_send_draft`.
+   - Do not send: the user reviews and sends the draft themselves, so never call `outlook_send_draft`.
    - If the user asks for changes afterwards, use `outlook_update_draft` on the same draft; do not create a new one.
 5. **Output**: one or two lines with recipient(s), subject and the draft `webLink`, plus any placeholders the user must fill.

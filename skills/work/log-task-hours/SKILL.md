@@ -9,12 +9,12 @@ Log the actual hours on an Azure DevOps ticket (any organization and project). T
 0. **Organization and assignee**: `<org>` is the default from `az devops configure --list` (`organization = ...`); `<me>` is `az account show --query user.name -o tsv`. If either is missing, ask once for it.
 1. **Ticket**: from `$ARGUMENTS`; otherwise from the current conversation, the branch name or folders like `Ticket-<id>`. If several candidates remain, or none, ask which one (a single question).
 2. **Parent**: `az boards work-item show --id <id> --org <org> --expand relations -o json` → `System.TeamProject`, `System.AreaPath`, `System.IterationPath`, `System.Title`, children (`System.LinkTypes.Hierarchy-Forward`).
-3. **Hours already logged**: for each child Task read `Custom.Effectivedate` (or `System.CreatedDate` if missing); take the most recent as `<from>`, so the same work is not counted twice.
+3. **Hours already logged**: for each child Task read `Custom.Effectivedate` (or `System.CreatedDate` if missing); take the most recent as `<from>`, so the same work is not counted twice. With no child Tasks there is no `<from>`: run the script without `--dal`.
 4. **Hours worked**: `python "${CLAUDE_SKILL_DIR}/active_session_time.py" <id> [--dal <from>]`. It sums the active time of the Claude Code sessions that mention the ticket (pauses >15 min excluded), rounded up to **multiples of 0.5** (minimum 0.5). If TOTALE is 0, say so and ask for the hours.
 5. **Title** — chosen with the Clean Code rules for meaningful names:
    - **reveals intent**: says what was done and on what, without having to open the ticket (verb/action + domain object: "Ripristino impianti LA RUSSA a mai rivalutati");
    - **domain language**: use the terms of the ticket and of the business (impianto, verifica, amministratore, rivalutazione ISTAT…), not needless technical details;
-   - **no noise or generic words**: "fix", "varie", "lavoro", "attività", "modifiche", "ticket <id>" are forbidden;
+   - **no noise or generic words**: "fix", "varie", "lavoro", "attività", "modifiche", "ticket <id>" add nothing the reader could not guess without the ticket, so avoid them;
    - **specific but short**: max ~60 characters, written in Italian, a single thing; if the sessions cover several activities, name the predominant one.
    Sources: the current conversation, the `ai-title` records and the user messages of the sessions listed by the script.
 6. **Summary**: show on one line `#<id> "<parent title>" → Task "<title>" <hours>h (<sessions/time ranges>)` and ask for confirmation; create the Task only after the user's ok. If the user corrects hours or title, use theirs.

@@ -1,17 +1,28 @@
 ---
 name: kets-review
-description: Review a change (current diff, branch, PR or path) for the design regressions it introduces - spaghetti code and related smells, logic in the wrong place, duplicates of existing helpers, weaker types, pass-through wrappers - judged against the project's own architecture, on any stack and any age of codebase. Lists at most 3 improvement opportunities in the touched code without applying them. Complements /code-review (bugs). Use when the user asks for a design, quality or structure review of a change, a spaghetti check, "/kets-review", or when implement reaches its review step.
+description: Review a change (current diff, branch, PR or path) for the design regressions it introduces, or the whole project on request ("project") - spaghetti code and related smells, logic in the wrong place, duplicates of existing helpers, weaker types, pass-through wrappers - judged against the project's own architecture, on any stack and any age of codebase. Lists at most 3 improvement opportunities in the touched code without applying them. Complements /code-review (bugs). Use when the user asks for a design, quality or structure review of a change, a spaghetti check, "/kets-review", or when implement reaches its review step.
 ---
 
 # Kets Review
 
-Judge the change, not the project. Measure it against the architecture the project has, not an ideal one. This skill complements `/code-review` (correctness bugs) and `/simplify` (local cleanups): don't repeat their findings. Use the vocabulary of `${CLAUDE_SKILL_DIR}/../codebase-design/SKILL.md`, if that file is there (module, interface, seam, depth, deletion test, refactoring moves).
+Judge the change, not the project, unless the project mode is asked for (step 1). Measure it against the architecture the project has, not an ideal one. This skill complements `/code-review` (correctness bugs) and `/simplify` (local cleanups): don't repeat their findings. Use the vocabulary of `${CLAUDE_SKILL_DIR}/../codebase-design/SKILL.md`, if that file is there (module, interface, seam, depth, deletion test, refactoring moves).
 
 ## 1. Target
 
-- Default: the current branch's diff against its base (merge-base with the default branch), uncommitted changes included.
+Two modes: the change (default) or the whole project (only when asked).
+
+**Change (default).**
+
+- The current branch's diff against its base (merge-base with the default branch), uncommitted changes included, new untracked files too (a plain `git diff` misses them; `git add -N` shows them without staging).
 - Also accepts a PR number (read it with `gh pr diff` or `az repos pr show`), a branch, or a path.
-- Empty diff: say so and stop.
+- Empty diff: say so, suggest the project mode, and stop. Never switch to it on your own.
+- Scope: only the files in the diff. Judge the changed lines and the function or class they sit in; never sweep the rest of the project. Other files are read only for the yardstick in step 2 and for targeted searches (e.g. an existing copy of a changed block).
+
+**Project.** When the argument is `project` or `progetto` (optionally followed by a folder), or the user asks to review the whole project or codebase.
+
+- Target: the whole repo, or that folder.
+- Don't read everything, 80/20: review the hotspots, the 10 files changed most often in the last 12 months (`git log --since="12 months ago" --format= --name-only -- <folder> | sort | uniq -c | sort -rn`), skipping generated, vendored, lock and test-data files. Name them in the report's "Reviewed" line.
+- There is no change, so step 3 doesn't apply: every problem is a finding tagged `existing`. The report has no verdict and no Opportunities section; the P1/P2/P3 limits of step 7 stay.
 
 ## 2. Learn the project's conventions first
 
@@ -59,11 +70,11 @@ This rule is what makes the review usable on old codebases.
 
 Prefer the smallest refactoring move from `codebase-design` that removes the problem, and name it in the finding's Fix line. Look actively for code judo: when it exists it is the best move.
 
-Never propose: an architecture migration (introducing DDD, layers or CQRS where the project doesn't have them); renaming or reformatting outside the change.
+Never propose: an architecture migration (introducing DDD, layers or CQRS where the project doesn't have them); renaming or reformatting outside the change. Both are project decisions, not fixes to this change, and they bury the real diff.
 
 ## 6. Verify before reporting
 
-Every finding cites `file:line`, the concrete signal, why it is a problem here (the consequence for whoever changes this code next), and the remedy. Re-read the code; drop any finding you can't point to. Skip what `/code-review` or `/simplify` already covers.
+Every finding cites `file:line`, the concrete signal, why it is a problem here (the consequence for whoever changes this code next), and the remedy. Re-read the code; drop any finding you can't point to.
 
 ## 7. Report
 
@@ -73,9 +84,9 @@ Rules:
 
 - **Verdict** first. "fixes needed" when a reported P1 or P2 finding is neither fixed nor justified with a real technical reason; P3 findings and opportunities never block. Passing tests is not a reason to approve.
 - **Effort** is what the fix takes the agent that will make it, not a person's time: **small** = one place in one file, and the existing tests already cover it; **medium** = several files or call sites, or tests to add or change; **large** = changes an interface used elsewhere, crosses modules or layers, or needs a decision from the user first.
-- **Fix first**: 1-3 moves with the most impact for the least work, picked across findings and opportunities. Point to the finding or opportunity by its number instead of repeating it.
+- **Fix first**: 1-3 moves with the most impact for the least work, picked across findings and opportunities. Point to the finding (1, 2...) or opportunity (O1, O2...) by its number instead of repeating it.
 - **Findings** (introduced or worsened) are numbered, so the user can say "fix 2". Order by impact over effort: the priority gives the impact, the effort reorders, so a small P2 comes before a large P1. P1: all of them. P2: at most 5, the smallest effort first. P3: at most 3, only small ones, in the "Minor" line.
-- **Opportunities**: at most 3, pre-existing in the touched code, chosen by payoff over effort. Weigh payoff by how often the file changes: `git log --since="12 months ago" --format= --name-only -- <file> | wc -l`; debt in a file that changes often pays off more. The review only lists them: it never applies them or opens tickets (implement applies the small ones).
+- **Opportunities**: at most 3, numbered O1, O2, O3, pre-existing in the touched code, chosen by payoff over effort. Weigh payoff by how often the file changes: `git log --since="12 months ago" --format= --name-only -- <file> | wc -l`; debt in a file that changes often pays off more. The review only lists them: it never applies them or opens tickets (implement applies the small ones).
 - One sentence per bullet, no paragraphs. A code snippet only when the signal can't be shown otherwise, at most 3 lines.
 - Leave out empty sections and lines ("Minor", "Left out", "Opportunities") instead of writing "none".
 
