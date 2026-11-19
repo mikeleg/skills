@@ -14,15 +14,18 @@ Two modes: the change (default) or the whole project (only when asked).
 **Change (default).**
 
 - The current branch's diff against its base (merge-base with the default branch), uncommitted changes included, new untracked files too (a plain `git diff` misses them; `git add -N` shows them without staging).
-- Also accepts a PR number (read it with `gh pr diff` or `az repos pr show`), a branch, or a path.
-- Empty diff: say so, suggest the project mode, and stop. Never switch to it on your own.
+- Also accepts a PR number, a branch, a commit or a commit range (`git show <sha>`, `git diff <a>..<b>`), or a path.
+- PR number: GitHub `gh pr diff <n>`. Azure DevOps: `az repos pr show` returns metadata, not a diff, so read the source and target branches from `az repos pr show --id <n>` (`sourceRefName`, `targetRefName`), run `git fetch origin <source> <target>`, then `git diff origin/<target>...origin/<source>`.
+- Path: limits the change's diff to those files or folders; it does not review whole files. To review whole files, use the project mode with that folder.
+- On the default branch with no uncommitted changes the merge-base diff is empty: fall back to the commits not yet pushed (`git diff @{u}..HEAD`, when an upstream exists and it is non-empty), otherwise to the last commit (`git diff HEAD~1..HEAD`). Say which one was used in the report's "Reviewed" line.
+- Empty diff (the fallback included, or nothing at all): say so, suggest the project mode, and stop. Never switch to it on your own.
 - Scope: only the files in the diff. Judge the changed lines and the function or class they sit in; never sweep the rest of the project. Other files are read only for the yardstick in step 2 and for targeted searches (e.g. an existing copy of a changed block).
 
 **Project.** When the argument is `project` or `progetto` (optionally followed by a folder), or the user asks to review the whole project or codebase.
 
 - Target: the whole repo, or that folder.
 - Don't read everything, 80/20: review the hotspots, the 10 files changed most often in the last 12 months (`git log --since="12 months ago" --format= --name-only -- <folder> | sort | uniq -c | sort -rn`), skipping generated, vendored, lock and test-data files. Name them in the report's "Reviewed" line.
-- There is no change, so step 3 doesn't apply: every problem is a finding tagged `existing`. The report has no verdict and no Opportunities section; the P1/P2/P3 limits of step 7 stay.
+- There is no change, so step 3 doesn't apply: every problem is a finding tagged `existing`, ADR conflicts included. The report has no verdict and no Opportunities section; the P1/P2/P3 limits of step 7 stay.
 
 ## 2. Learn the project's conventions first
 
@@ -51,7 +54,7 @@ This rule is what makes the review usable on old codebases.
 
 | Priority | Smell | Signal in the code |
 |---|---|---|
-| P1 | Against a decision | The change contradicts an accepted ADR in docs/adr/, or names a domain concept with a term GLOSSARY.md lists under _Avoid_. Quote the ADR or glossary line |
+| P1 | Against a decision | The change (in project mode, the code) contradicts an accepted ADR in docs/adr/, or names a domain concept it adds (in project mode, defines) with a term GLOSSARY.md lists under _Avoid_. Names from external APIs, libraries, frameworks or existing contracts at the boundary don't count. Quote the ADR or glossary line |
 | P1 | Copy-paste | A block almost identical to one that already exists, in the change or in the project. Search the codebase; name the existing one with its path |
 | P1 | Wrong placement | By the project's conventions: feature logic in a base class or generic shared helper; business logic in controllers, repositories or middleware when the project separates them |
 | P1 | Missing concept | The same if/switch on the same type or state in several places, or a new flag or enum added only to create one more "mode" inside an existing flow |
@@ -86,10 +89,10 @@ Write it in the conversation's language, for someone who hasn't read the diff: p
 
 Rules:
 
-- **Verdict** first. "fixes needed" when a reported P1 or P2 finding is neither fixed nor justified with a real technical reason; P3 findings and opportunities never block. Passing tests is not a reason to approve.
+- **Verdict** first. "fixes needed" when a reported P1 or P2 finding is neither fixed nor justified with a real technical reason. An "Against a decision" finding about an ADR is lifted only by aligning the code with the ADR or by a superseding ADR the user approved, never by a technical reason. P3 findings and opportunities never block. Passing tests is not a reason to approve.
 - **Effort** is what the fix takes the agent that will make it, not a person's time: **small** = one place in one file, and the existing tests already cover it; **medium** = several files or call sites, or tests to add or change; **large** = changes an interface used elsewhere, crosses modules or layers, or needs a decision from the user first.
-- **Fix first**: 1-3 moves with the most impact for the least work, picked across findings and opportunities. Point to the finding (1, 2...) or opportunity (O1, O2...) by its number instead of repeating it.
-- **Findings** (introduced or worsened) are numbered, so the user can say "fix 2". Order by impact over effort: the priority gives the impact, the effort reorders, so a small P2 comes before a large P1. P1: all of them. P2: at most 5, the smallest effort first. P3: at most 3, only small ones, in the "Minor" line.
+- **Fix first**: 1-3 moves with the most impact for the least work, picked across findings and opportunities. Point to the finding (1, 2...) or opportunity (O1, O2...) by its number instead of repeating it. An "Against a decision" finding, if there is one, is always the first item, whatever its effort.
+- **Findings** (introduced or worsened) are numbered, so the user can say "fix 2". "Against a decision" findings are always listed first, exempt from the effort reordering. Order the others by impact over effort: the priority gives the impact, the effort reorders, so a small P2 comes before a large P1. P1: all of them. P2: at most 5, the smallest effort first. P3: at most 3, only small ones, in the "Minor" line.
 - **Opportunities**: at most 3, numbered O1, O2, O3, pre-existing in the touched code, chosen by payoff over effort. Weigh payoff by how often the file changes: `git log --since="12 months ago" --format= --name-only -- <file> | wc -l`; debt in a file that changes often pays off more. The review only lists them: it never applies them or opens tickets (implement applies the small ones).
 - One sentence per bullet, no paragraphs. A code snippet only when the signal can't be shown otherwise, at most 3 lines.
 - Leave out empty sections and lines ("Minor", "Left out", "Opportunities") instead of writing "none".
