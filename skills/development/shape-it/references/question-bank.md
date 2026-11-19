@@ -6,8 +6,6 @@ Each question says what it protects the backlog from. Pick the 3–5 whose answe
 
 | Question | Protects from | Default to propose |
 |---|---|---|
-| Who is the user, and what is the one job they hire this for? | Building for several personas at once; slices that serve nobody fully | The persona that appears most in the brief / the one that pays |
-| What is the single signal that the MVP worked? (a number, an event, a sentence a user says) | No finish line; endless polish | "First real user completes the core job without help" |
 | What is the riskiest assumption – the thing most likely to kill this? Technical, product, or integration? | A skeleton that avoids the hard part | The external dependency or the unvalidated UX, whichever the brief mentions nervously |
 | Who implements the backlog: an agent alone, you + agent, a human team, mixed? | Wrong granularity: tickets too thin for an agent or too prescriptive for humans | Agent alone (most detailed body, humans can skip sections) |
 | Here is what I think is out of scope: [list]. Agree? | Scope creep; re-arguing the same cuts | The list you derived from the brief |
@@ -35,11 +33,9 @@ Each question says what it protects the backlog from. Pick the 3–5 whose answe
 ```
 Before I scope this, the few things that change the backlog the most:
 
-1. Core user & job – I read it as <X>. Correct?
-2. Success signal – I'll use "<Y>" unless you give me a better one.
-3. Riskiest assumption – looks like <Z>. If it's something else, that's the thing I want the skeleton to go through.
-4. Who implements – I'll write for an agent working alone; humans can skip the implementation notes. OK?
-5. Out of scope for this round: <a>, <b>, <c>. Add or remove?
+1. Riskiest assumption – looks like <Z>. If it's something else, that's the thing I want the skeleton to go through.
+2. Who implements – I'll write for an agent working alone; humans can skip the implementation notes. OK?
+3. Out of scope for this round: <a>, <b>, <c>. Add or remove?
 
 Reply "ok" to accept all defaults.
 ```

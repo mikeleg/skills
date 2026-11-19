@@ -27,6 +27,7 @@ Rules that hold for the whole skill:
 5. The stack already in `app/`, if any: recognise it from build files, manifests and the installed toolchain, without assuming one.
 6. Which agents the project is set up for besides Claude Code: `AGENTS.md`, `.github/copilot-instructions.md`, `.codex/`, `.cursor/` in `app/`.
 7. Which of the workflow's skills are available (step 8).
+8. Does `wiki/decisions/` exist? Then propose moving those pages to `app/docs/adr/` as ADRs (keep their numbers) and the term definitions from `wiki/entities/` into `app/GLOSSARY.md`; ask before doing it.
 
 Install nothing without asking. Use what you found to pre-fill the answers below; never ask what you already know.
 
@@ -56,7 +57,7 @@ Then show the **3-line preamble** and wait for confirmation:
 
 ```
 <workspace-root>/      ← opened in the IDE, NOT a git repo
-├── app/               ← code repo
+├── app/               ← code repo (`GLOSSARY.md` and `docs/adr/` are created lazily, when the first term or ADR exists, not at setup)
 ├── wiki/              ← the agent's second brain, maintained by the agent (separate git)
 ├── reference/         ← raw sources: specs, client docs, notes, API docs, mocks (read-only for the agent)
 │   └── mock/current/  ← current version; older ones in mock/<YYYY-MM-DD>/
@@ -104,7 +105,7 @@ Two things make it pay off: it is **cheap to read selectively** (index first, sm
 ### Three layers
 
 - **Raw sources – `reference/`.** Specs, client documents, meeting notes, API docs, mocks, exports. Curated by the human, **immutable**: the agent reads them and never edits them. The code in `app/` is also a source the agent reads; the wiki points into it.
-- **The wiki – `wiki/`.** Written and maintained **by the agent**: summaries, entity and concept pages, decisions, integrations, cross-links. The human reads it, reviews it through PRs, and rarely writes in it. To change what the wiki says, the human changes or adds a source (or states a decision) and the agent updates the pages.
+- **The wiki – `wiki/`.** Written and maintained **by the agent**: summaries, entity and concept pages, integrations, cross-links. Domain terms live in `app/GLOSSARY.md` and decisions in `app/docs/adr/` (written by `shape-it`; formats in its `references/domain-docs.md`); wiki pages link or cite them. The human reads it, reviews it through PRs, and rarely writes in it. To change what the wiki says, the human changes or adds a source (or states a decision) and the agent updates the pages.
 - **The schema – `wiki/CLAUDE.md`.** The wiki's structure, page format and workflows below. The user and the agent evolve it together as they learn what works.
 
 ### Structure
@@ -116,9 +117,8 @@ wiki/
 ├── log.md           ← append-only history of ingests, tasks, queries, lint passes
 ├── overview.md      ← the project on one page: purpose, users, main flows, architecture at a glance
 ├── sources/         ← one summary page per raw source in ../reference/
-├── entities/        ← domain entities (Order, Customer…): meaning, rules, name in code
+├── entities/        ← domain entities (Order, Customer…): rules, relations, name in code; the definition is in ../app/GLOSSARY.md
 ├── concepts/        ← business rules, flows, cross-cutting concepts
-├── decisions/       ← one page per decision: context · decision · why · consequences
 └── integrations/    ← one page per external system (step 6)
 ```
 
@@ -140,7 +140,7 @@ Pages: sources/spec-v3, entities/order, concepts/discounts (+ index)
 ```
 ---
 summary: one line, the same as in index.md
-sources: [sources/spec-v3.md, decisions/0004-discount-stacking.md]
+sources: [sources/spec-v3.md, ../app/docs/adr/0004-discount-stacking.md]
 code: [src/billing/discounts.ts, DiscountPolicy.apply]
 updated: <date>
 ---
@@ -150,14 +150,15 @@ Links to related pages instead of repeating them.
 ```
 
 - One entity or concept per page, under ~120 lines. Longer means two pages.
+- Entity pages link to the term in `../app/GLOSSARY.md` instead of redefining it or listing its _Avoid_ words.
 - **Point to code, never paste it.** The code is the truth for *how*; the page says *what*, *why* and *where*.
 - **Every rule traces to a source** (`sources:`). No source, no rule: it's an **Open** block (step 6).
 - Each fact lives in one page; everywhere else links to it. Plain relative markdown links, so the pages render on Azure DevOps, GitHub and in Obsidian alike (Obsidian's graph view is a handy optional viewer).
 
 ### Operations (written into `wiki/CLAUDE.md`)
 
-- **Ingest** – a new or changed source lands in `reference/`. The agent reads it, discusses the key points with the user, writes `sources/<name>.md`, updates every entity, concept, decision and integration page it touches (often several), the index and the log. One source at a time, with the user in the loop. If the source contradicts a page, the agent doesn't pick a winner: it opens an **Open** block and asks.
-- **Task** – the coding version of ingest. At the end of a task, the work itself is the source: update the pages whose rules or `code:` pointers changed, add a `decisions/` page for any decision taken, log `task | <slice or PR>`. Pages the task only read and found correct need no update.
+- **Ingest** – a new or changed source lands in `reference/`. The agent reads it, discusses the key points with the user, writes `sources/<name>.md`, updates every entity, concept and integration page it touches (often several), the index and the log. When the source defines or renames terms, update `app/GLOSSARY.md`; when it carries a decision that is hard to reverse, surprising without context and a real trade-off, propose an ADR in `app/docs/adr/` (a change in the code repo: ask first). One source at a time, with the user in the loop. If the source contradicts a page, the agent doesn't pick a winner: it opens an **Open** block and asks.
+- **Task** – the coding version of ingest. At the end of a task, the work itself is the source: update the pages whose rules or `code:` pointers changed, write an ADR in `docs/adr/` for a decision taken that passes the same three-criteria test, add the terms resolved to `GLOSSARY.md`, log `task | <slice or PR>`. Pages the task only read and found correct need no update.
 - **Query** – answer questions from the wiki first: index → pages → `code:` pointers, searching the codebase only for what the wiki doesn't answer, citing the pages used. When an answer is worth keeping (how a flow works end to end, a comparison, an analysis), file it as a page so the next session gets it for free.
 - **Lint** – on request or every few weeks: contradictions between pages, claims superseded by a newer source, orphan pages, concepts mentioned without a page, missing cross-links, `code:` pointers that no longer resolve (path gone, symbol renamed), **Open** blocks a newer source now answers. Fix what's mechanical, list the rest, log `lint`.
 
@@ -215,7 +216,8 @@ There is no separate questions file. An open point lives where the agent will re
 - Workflow: `shape-it` → `implement` (with `/simplify`, `/code-review`, `kets-review`); `tdd` for test-first work (features or bugs). They come from the `mikeleg-skills` plugin (marketplace `mikeleg/skills`).
 - Security: never print tokens or put them in files; confirm before push, merge, sending, deleting.
 - The 3-line preamble ritual (goal, source of truth, definition of done) before non-trivial work, and the rule "if sources disagree, surface it and ask".
-- Wiki (`../wiki/`), in four lines: start every task from `../wiki/index.md`, open only the pages it touches and follow their `code:` pointers, search the code only for what the wiki doesn't answer; stop at **Open** blocks; read `../wiki/CLAUDE.md` before writing to the wiki; end every task with the wiki's **task** operation (update touched pages, decisions, index, log). Never edit `../reference/`.
+- Wiki (`../wiki/`), in four lines: start every task from `../wiki/index.md`, open only the pages it touches and follow their `code:` pointers, search the code only for what the wiki doesn't answer; stop at **Open** blocks; read `../wiki/CLAUDE.md` before writing to the wiki; end every task with the wiki's **task** operation (update touched pages, index, log). Never edit `../reference/`.
+- Domain terms: `GLOSSARY.md`; decisions: `docs/adr/` (format: shape-it `references/domain-docs.md`). Respect both.
 - To verify: the environment's open points from step 6, if any.
 
 **`<workspace-root>/CLAUDE.md` (local-only)** – short, read in every session opened on the root:
@@ -230,7 +232,7 @@ There is no separate questions file. An open point lives where the agent will re
 - Project instructions: app/CLAUDE.md
 ```
 
-`CLAUDE.md` files are loaded into every session, so keep them short: commands, flow, rules for working, and the pointer to the wiki. Everything else (domain language, business rules, decisions, where things live) goes in the wiki, which is read on demand. Each fact lives in one place: don't duplicate.
+`CLAUDE.md` files are loaded into every session, so keep them short: commands, flow, rules for working, and the pointer to the wiki. Domain terms go in `GLOSSARY.md` and decisions in `docs/adr/`; everything else (business rules, flows, where things live) goes in the wiki, which is read on demand. Each fact lives in one place: don't duplicate.
 
 ## 8. Skills the workflow needs
 
@@ -257,7 +259,7 @@ The workspace is only useful if the agent has the skills that work in it. Check 
    - Workspace root is not a git repo; `app/`, `wiki/`, `reference/` exist
    - `app/` repo with remote (or local), `.gitignore`
    - `main` protected (policy, ruleset, hook, or written convention)
-   - `wiki/` repo with branches + PRs; `CLAUDE.md` (schema), `index.md`, `log.md` with the setup entry, `overview.md`, `sources/`, `entities/`, `concepts/`, `decisions/`, `integrations/`
+   - `wiki/` repo with branches + PRs; `CLAUDE.md` (schema), `index.md`, `log.md` with the setup entry, `overview.md`, `sources/`, `entities/`, `concepts/`, `integrations/`
    - `app/.claude/settings.json` lets agents in `app/` read `../wiki` and `../reference`
    - `.vscode/` at the root with real tasks and launch configs
    - Internal packages configured, or recorded as open points

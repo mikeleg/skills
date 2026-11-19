@@ -13,6 +13,7 @@ Turn one unit of agreed work (a slice from `docs/backlog/<feature>/backlog.md`, 
 - Read `CLAUDE.md`/`AGENTS.md` and the project's test and typecheck commands. Never ask what you can read.
 - Note how the code is organized: by feature (a new repo counts as this) or by technical layer (Controllers/Services/Repositories). The folder rule in tdd depends on it; the final report says which structure the work followed.
 - Read `${CLAUDE_SKILL_DIR}/../tdd/SKILL.md`, with the `tests.md` and `mocking.md` next to it: steps 1 and 2 follow it. If that file isn't there, use the `tdd` skill if this session lists it; otherwise work red → green → refactor without it and say so in the final report.
+- Read `GLOSSARY.md` (the right one via `GLOSSARY-MAP.md` if the root has it) and the ADRs in `docs/adr/`: the ones the slice lists under `**ADRs:**`, plus any whose title touches the area of the work. Skip silently if they don't exist. If the slice, as written, contradicts an accepted ADR (one without a `Status` counts as accepted), stop before writing code: quote the ADR and the slice line, and ask the user whether to change the slice or supersede the ADR (a new ADR, the old one marked `superseded by`). Never edit an ADR to say the opposite.
 - Record the starting point: run `git rev-parse HEAD` and note the SHA. Every check below diffs against it. Shell variables don't survive between commands, so write the SHA out in each command (shown as `<base>` below).
 
 ## 1. Seams (the one checkpoint)
@@ -20,12 +21,13 @@ Turn one unit of agreed work (a slice from `docs/backlog/<feature>/backlog.md`, 
 Tests go only at agreed seams; tdd says what a seam is and how to propose one.
 
 - If the slice lists **Seams** (shape-it writes them), they are already agreed: map each acceptance criterion to a seam and go.
-- If it doesn't, propose them in one message as tdd says, a seam and a test for each acceptance criterion. Wait for the user's ok. This is the only planned stop; the one unplanned stop is a slice that duplicates another (see the Duplication rule in codebase-design).
+- If it doesn't, propose them in one message as tdd says, a seam and a test for each acceptance criterion. Wait for the user's ok. This is the only planned stop; the exceptions are a slice that contradicts an accepted ADR (step 0) and a slice that duplicates another (see the Duplication rule in codebase-design).
 
 ## 2. Build it with tdd, one criterion at a time
 
 Run the tdd loop once per acceptance criterion, in order. The criterion is the behavior the test names, and the seams from step 1 are tdd's agreed seams: don't ask again. How to write the test and run the loop is in tdd; this step only adds:
 
+- Name things with the glossary terms; never an `_Avoid_` term.
 - Note the failure each test produced before the code existed: the final report asks for it.
 - Run typechecking with the tests on every green.
 - **A criterion with no cheap test** (visual feel, a third-party system with no sandbox) gets the closest executable check instead: a script, a browser run, a log assertion. Name it in the final report. Don't write a bad test to tick the box.
@@ -48,11 +50,12 @@ If a mutation stays green, a test is missing or asserting the wrong thing. Add o
 Launch a subagent with a fresh context. Give it:
 
 - the diff: `git add -N <new files of this work> && git diff <base>` (`add -N` makes new files show up without staging their content);
-- the full text of the slice/ticket/spec, plus the non-goals from `scope.md` if there is one.
+- the full text of the slice/ticket/spec, plus the non-goals from `scope.md` if there is one;
+- the relevant ADRs and the glossary, if there are any.
 
-Brief: *"Report (a) acceptance criteria that are missing or only partly implemented; (b) behavior in the diff nobody asked for, including anything listed as a non-goal; (c) criteria that look implemented but where the implementation looks wrong. Quote the criterion or non-goal line for each finding. Zero findings is a valid answer. Under 300 words."*
+Brief: *"Report (a) acceptance criteria that are missing or only partly implemented; (b) behavior in the diff nobody asked for, including anything listed as a non-goal; (c) criteria that look implemented but where the implementation looks wrong; (d) places where the diff contradicts an accepted ADR or uses a term the glossary lists under _Avoid_; quote the ADR or glossary line. Quote the criterion or non-goal line for each other finding. Zero findings is a valid answer. Under 300 words."*
 
-Fix (a) and (c). Remove (b) and list what you removed in the final report, so the user can ask to put it back. If there is no spec at all, skip this step and say so in the final report.
+Fix (a) and (c). Remove (b) and list what you removed in the final report, so the user can ask to put it back. Never fix (d) silently: stop and ask the user whether to adapt the code or supersede the ADR. The exception is an `_Avoid_` term: rename it without asking. Contradicting an ADR always asks. If there is no spec at all, skip this step and say so in the final report.
 
 ## 5. Simplify
 
@@ -93,5 +96,6 @@ Short, evidence over adjectives:
 - Duplications between slices that were flagged, and what the user chose.
 - Mutation result from step 3.
 - Spec check findings, what you did with them, and anything removed as unrequested.
+- ADR and glossary conflicts found, and what the user chose.
 - /code-review and kets-review findings fixed and ignored (with why), the kets-review opportunities applied, and the ones left.
 - Floor hits, if any, and their justification.

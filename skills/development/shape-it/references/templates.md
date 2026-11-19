@@ -12,15 +12,6 @@ Contents:
 
 **Status:** scoped <date> · **Implementer:** agent alone | pair | team | mixed · **Tracker:** none | github:<owner/repo> | ado:<org/project>
 
-## Problem
-One paragraph. Who hurts, when, and what they do today instead.
-
-## User & job
-<persona> needs to <job> so that <outcome>.
-
-## Success signal
-The one observable thing that says this worked: <signal>.
-
 ## Riskiest assumption
 <assumption>. The walking skeleton goes through it. Prototype: none | done (<answer>) | skipped (<why>).
 
@@ -34,12 +25,11 @@ The one observable thing that says this worked: <signal>.
 ## Constraints
 - Stack / integrations / data / deadline / conventions, only the ones that bind.
 
-## Decisions taken during scoping
-- <decision> (<who, when>)
-
 ## Open risks
 - <risk> – carried into slice <N>
 ```
+
+Only these sections: they are what implement (non-goals) and estimate (implementer, riskiest assumption, prototype status, open risks) read.
 
 ## backlog.md
 
@@ -56,6 +46,7 @@ Order is dependency order. A slice with no "Blocked by" can start in parallel.
 **Why:** proves <riskiest assumption> end-to-end / unlocks <value>
 **Size:** S | M
 **Blocked by:** –
+**ADRs:** 0003, 0007 *(optional: only when ADRs shaped this slice)*
 **Tracker:** (url after publishing)
 
 ### Acceptance criteria

@@ -1,6 +1,6 @@
 ---
 name: pianifica
-description: Kowalski, pianifica! Turns an idea, MVP or feature into a scoped plan and a backlog of vertical slices, using the shape-it skill. Use ONLY when the user calls Kowalski by name to plan, e.g. "/kowalski:pianifica", "kowalski, pianifica la feature".
+description: Kowalski, pianifica! Turns an idea, MVP or feature into a scoped plan and a backlog of vertical slices, and also refines an existing backlog, using the shape-it skill. Use ONLY when the user calls Kowalski by name to plan or refine, e.g. "/kowalski:pianifica", "kowalski, pianifica la feature", "kowalski, raffina il backlog".
 argument-hint: "[idea or feature]"
 ---
 

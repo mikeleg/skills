@@ -1,7 +1,7 @@
 ---
 name: shape-it
 description: >-
-  Turn a product idea, MVP, or new feature into a scoped plan and an implementable backlog of vertical slices with acceptance criteria. Use this whenever the user wants to design, scope, shape, plan or "think through" an MVP, a new product, a new feature, an epic, or says things like "I have an idea", "let's plan this feature", "what should the MVP be", "break this down", "create a backlog", "create the tickets/issues/work items", or asks how to start building something. Works both inside a codebase (Claude Code) and without one (Cowork / chat). Produces markdown in the repo (source of truth) and optionally publishes to GitHub Issues or Azure DevOps Boards. Stops at the backlog; implementation is another skill.
+  Turn a product idea, MVP, or new feature into a scoped plan and an implementable backlog of vertical slices with acceptance criteria, and record the domain language (GLOSSARY.md) and architecture decisions (ADRs) it settles. Also refines an existing backlog by grilling the user with rounds of questions. Use this whenever the user wants to design, scope, shape, plan or "think through" an MVP, a new product, a new feature, an epic, or says things like "I have an idea", "let's plan this feature", "what should the MVP be", "break this down", "create a backlog", "create the tickets/issues/work items", "refine / grill / sharpen the backlog", "raffina il backlog", or asks how to start building something. Works both inside a codebase (Claude Code) and without one (Cowork / chat). Produces markdown in the repo (source of truth) and optionally publishes to GitHub Issues or Azure DevOps Boards. Stops at the backlog; implementation is another skill.
 ---
 
 # Shape It
@@ -17,11 +17,13 @@ Speak the user's language in conversation. Write the artifacts (scope.md, backlo
 3. **Scope** – walking skeleton + riskiest assumption → in / out / non-goals.
 4. **Prototype gate** – decide whether one throwaway prototype should answer a question before slicing.
 5. **Slice** – vertical tracer-bullet slices with acceptance criteria and blocking edges.
-6. **Write** – `scope.md` + `backlog.md` in the repo (or workspace).
+6. **Write** – `scope.md` + `backlog.md` in the repo (or workspace), plus glossary terms and ADRs when the scoping settled any.
 7. **Publish (optional)** – GitHub Issues or Azure DevOps work items, only after confirmation.
 8. **Hand off** – say which slice goes first and that implementation is a separate skill.
 
 Steps 2, 4 and 7 (confirmation before publishing) are the only places you stop and wait for the user. Everything else, do.
+
+If `docs/backlog/<slug>/` already exists and the user wants to refine it, or `estimate` sent L slices back to be split, go to [Refine an existing backlog](#refine-an-existing-backlog) instead of the flow below.
 
 ---
 
@@ -30,7 +32,7 @@ Steps 2, 4 and 7 (confirmation before publishing) are the only places you stop a
 Before asking anything, build a "what I already know" picture:
 
 - **Environment**: Is there a repo? (`git rev-parse --is-inside-work-tree`, or a project folder in view). If yes you are in *codebase mode*; if no, *greenfield mode*. The flow is identical, only the depth of context differs.
-- **Codebase mode**: read `README`, `CLAUDE.md`/`AGENTS.md`, `docs/`, the dependency manifest, the top-level folder structure, and any existing `docs/backlog/` or `docs/specs/`. Note the stack, the test setup, the entry points, and conventions. Grep for things the feature will touch. Ten minutes here saves five bad questions later.
+- **Codebase mode**: read `README`, `CLAUDE.md`/`AGENTS.md`, `docs/`, the dependency manifest, the top-level folder structure, and any existing `docs/backlog/` or `docs/specs/`. Note the stack, the test setup, the entry points, and conventions. Grep for things the feature will touch. Also read `GLOSSARY.md` / `GLOSSARY-MAP.md` and the titles in `docs/adr/` (open the ADRs the feature touches). Decisions recorded there count as already made: do not re-ask them. Ten minutes here saves five bad questions later.
 - **Tracker**: look at `git remote -v`. `github.com` → GitHub; `dev.azure.com` or `visualstudio.com` → Azure DevOps. Check whether `gh` / `az` CLIs are available, or (in Cowork/chat) whether a GitHub or Azure DevOps connector is loaded. Do not publish yet; just know what is possible. If nothing is available, markdown is the only output and that is fine.
 - **Input**: the user's brief, pasted notes, linked docs, previous conversation. Extract every decision already made so you do not re-ask it.
 
@@ -38,7 +40,7 @@ Summarise this in 5–10 lines back to the user *together with* the interview qu
 
 ## 2. The 80/20 interview
 
-Pocock-style one-question-at-a-time grilling is thorough but exhausting, and most answers do not move the backlog. Instead: find the handful of unknowns whose answer would **change which slices exist or in what order**, and ask only those.
+A full grilling is worth it when refining an existing backlog (see Refine), but on a first pass most answers do not move the backlog. Instead: find the handful of unknowns whose answer would **change which slices exist or in what order**, and ask only those.
 
 Rules:
 - **One batch**, 3–5 questions max, in a single message. Number them.
@@ -46,14 +48,13 @@ Rules:
 - **Rank by impact**: lead with the question that, answered differently, would delete or reorder the most slices.
 - **Never ask what Orient already told you.** Asking "what stack is this?" inside a Next.js repo is a failure.
 - **Stop criterion**: when the remaining open questions would only change wording inside a slice, not the slices themselves, stop asking and write.
+- **Domain habits**: when the user's words conflict with the glossary, say so and ask which is right. When a term is vague or overloaded, propose one canonical term. If the feature as described would contradict an accepted ADR, make it a question (keep the ADR, or supersede it) with your recommended default. If a term turns out to mean two different things in two areas of the product, propose splitting the glossary into contexts (see `references/domain-docs.md`).
 
-The question bank, with what each question protects you from, is in `references/question-bank.md`. Read it the first time you run this skill in a session. The five that are almost always on the list:
+The question bank, with what each question protects you from, is in `references/question-bank.md`. Read it the first time you run this skill in a session. The three that are almost always on the list:
 
-1. **Who is the user and what is the one job?** (protects from building for three personas)
-2. **What single signal says the MVP worked?** (protects from no finish line)
-3. **What is the riskiest assumption** – technical, product, or integration? (decides what the walking skeleton must go through)
-4. **Hard constraints**: deadline, stack, integrations, data that already exists, who implements (agent alone / pair / human team). (decides slice granularity, see step 5)
-5. **What is explicitly out?** (protects from scope creep; you propose the list, they edit it)
+1. **What is the riskiest assumption** – technical, product, or integration? (decides what the walking skeleton must go through)
+2. **Hard constraints**: deadline, stack, integrations, data that already exists, who implements (agent alone / pair / human team). (decides slice granularity, see step 5)
+3. **What is explicitly out?** (protects from scope creep; you propose the list, they edit it)
 
 If the user answers with a wall of text, extract decisions, restate them as bullets, and move on. Ask a second batch only if an answer created a *new* fork in the slices. Two batches is the ceiling.
 
@@ -65,7 +66,7 @@ The method:
 - **Riskiest assumption first**: route the skeleton deliberately through the thing most likely to kill the idea (the flaky third-party API, the unclear data model, the UX nobody has validated). If the skeleton proves that, everything else is incremental.
 - **In / Out / Non-goals**: three explicit lists. "Non-goals" are things that look like they belong but you are consciously not doing *in this MVP* (and why, in one clause). This list is what prevents the backlog from doubling in week two.
 
-Write this as `scope.md` (template in `references/templates.md`). Keep it under one screen. If it needs more, the scope is too big; cut.
+Write this as `scope.md` (template in `references/templates.md`): only riskiest assumption, in / out / non-goals, binding constraints and open risks, the sections the implementing and estimating steps read. No problem statement, persona or decision log. Keep it under one screen. If it needs more, the scope is too big; cut.
 
 ### A note on "MVP" vs "new feature"
 
@@ -109,6 +110,8 @@ You learned this in the interview. Adapt the *body* of each slice, not its shape
 
 Given / When / Then, concrete, verifiable. Two to five per slice. If a criterion contains "works correctly", "is fast", "handles errors", it is not a criterion yet – ask yourself what you would actually check and write that. Include the negative path when it matters (what happens on the invalid input, the timeout, the empty state).
 
+Slice titles, acceptance criteria and seams use glossary terms, never `_Avoid_` terms. When a slice is shaped by an ADR, add a line `**ADRs:** 0003, 0007` to it, so `implement` knows which ADRs to check.
+
 Each slice also gets a one-line **Why** (what it proves or what value it unlocks) and a **Size**, measured as the work for the coding agent that will implement it, not human time: S = one implement run through one seam, a few files; M = one implement run through several seams or layers; L = doesn't fit one implement run (too much to hold at once, or decisions still open along the way) – split it.
 
 Full slice template and a worked example are in `references/templates.md`.
@@ -123,7 +126,13 @@ Location:
 
 `backlog.md` starts with a short header (link to scope, implementer profile, tracker status) and then the slices in dependency order. Keep a `## Later` section at the bottom for things that came up and were cut, one line each, so they are not lost and not argued about again.
 
-Show the user the backlog in chat as well: slice titles, sizes, blocking edges. Not the full bodies; they can open the file.
+Besides `scope.md` and `backlog.md`:
+- Update `GLOSSARY.md` with the terms resolved during scoping.
+- Write an ADR for each decision that passes the three-criteria test. Often zero or one per feature; never pad.
+
+Locations, formats and rules are in `references/domain-docs.md`. Read it before writing either.
+
+Show the user the backlog in chat as well: slice titles, sizes, blocking edges. Not the full bodies; they can open the file. In the same message list the glossary terms added and the ADR titles.
 
 ## 7. Publish (ask first)
 
@@ -139,7 +148,7 @@ If neither tracker is reachable, say so in one line and stop at markdown. Do not
 ## 8. Hand off
 
 Final message, short:
-- Where the files are.
+- Where the files are, including the glossary terms and ADRs written.
 - Which slice to start with and why (it is the skeleton).
 - Any open risk that was not prototyped.
 - That implementation is a separate skill/flow (`implement`); do not start implementing unless asked.
@@ -147,10 +156,44 @@ Final message, short:
 
 ---
 
+## Refine an existing backlog
+
+Grilling mode, inspired by Pocock's `grilling` skill. Opt-in: the user asked to be grilled, so the 3–5 question cap and the two-batch ceiling of step 2 do not apply here.
+
+**When**: a backlog for this feature already exists and the user asks to refine, grill or sharpen it, or `estimate` sent L slices back to be split.
+
+**1. Read and build the tree.** Read `scope.md`, `backlog.md`, `GLOSSARY.md` (the right one via `GLOSSARY-MAP.md` if the root has it) and the referenced ADRs. Build a design tree from them: root = riskiest assumption; then in / out / non-goals; then the slice set, order and `Blocked by` edges; then each slice's acceptance criteria and seams. Every decision branches into the ones that depend on it. When you came here to split L slices sent back by `estimate`, the tree is only those slices and the decisions they depend on; don't re-grill the rest of the backlog.
+
+**2. Work in rounds.** The frontier is every decision whose prerequisites are settled. Ask the whole frontier in one round, numbered, each with your recommended answer, worded so "yes" accepts it. A question that depends on another one still open in the same round goes to a later round. Format:
+
+```
+❓ **Q1** - **<title>**: <question, options if any>
+
+➡️ <recommended answer>
+```
+
+**3. Facts are your job, decisions are the user's.** A fact from the code or the environment: dispatch a subagent (haiku is enough) to find it instead of asking. Do not block on it; only the questions downstream of it wait. Without an Agent tool, look it up yourself.
+
+**4. Keep the domain habits** from step 2 during the rounds: glossary conflicts, vague or overloaded terms, ADR conflicts.
+
+**5. Stop** when the frontier is empty, or when the remaining questions would only change wording inside a slice. Then summarise what would change: slices added / removed / split / reordered, acceptance criteria changed, glossary terms, new or superseding ADRs. Apply nothing until the user confirms.
+
+**6. Apply in place, never regenerate the files.**
+- Keep every `**Estimate (h):**`, `**Actual (h):**` and `**Tracker:**` line.
+- Never renumber existing slices: a split S3 becomes S3a, S3b; a new slice takes the next free number; update `Blocked by` edges accordingly.
+- Do not touch done slices (the ones with an Actual).
+- A changed slice that had an Estimate gets that line marked `(stale: re-run estimate)`. Suggest running `estimate` at the end.
+- Update the glossary and ADRs per `references/domain-docs.md`. Superseding an ADR needs the user's ok, already obtained in the rounds.
+- If slices were published to a tracker, ask before updating or creating work items / issues (same rule as step 7).
+
+**7. End** with a short change summary.
+
+---
+
 ## Things that mean you are doing it wrong
 
 - You asked a question Orient could have answered.
-- You asked questions one at a time, or more than five in a batch.
+- You asked questions one at a time, or more than five in a batch (outside Refine).
 - A question has no proposed default.
 - Slice 1 is "set up the project" or "create the database schema".
 - Slices are horizontal (all backend, then all frontend).
@@ -159,3 +202,5 @@ Final message, short:
 - `scope.md` has no non-goals.
 - You published to a tracker without being told to.
 - You started writing code that is not a prototype.
+- An ADR records something easy to reverse, or a decision with no real alternative.
+- `GLOSSARY.md` contains implementation details, or a slice uses an `_Avoid_` term.

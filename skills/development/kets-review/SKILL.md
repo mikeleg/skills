@@ -1,6 +1,6 @@
 ---
 name: kets-review
-description: Review a change (current diff, branch, PR or path) for the design regressions it introduces, or the whole project on request ("project") - spaghetti code and related smells, logic in the wrong place, duplicates of existing helpers, weaker types, pass-through wrappers - judged against the project's own architecture, on any stack and any age of codebase. Lists at most 3 improvement opportunities in the touched code without applying them. Complements /code-review (bugs). Use when the user asks for a design, quality or structure review of a change, a spaghetti check, "/kets-review", or when implement reaches its review step.
+description: Review a change (current diff, branch, PR or path) for the design regressions it introduces, or the whole project on request ("project") - spaghetti code and related smells, logic in the wrong place, duplicates of existing helpers, weaker types, pass-through wrappers, contradictions with the project's ADRs (docs/adr/) and glossary (GLOSSARY.md) - judged against the project's own architecture, on any stack and any age of codebase. Lists at most 3 improvement opportunities in the touched code without applying them. Complements /code-review (bugs). Use when the user asks for a design, quality or structure review of a change, a spaghetti check, "/kets-review", or when implement reaches its review step.
 ---
 
 # Kets Review
@@ -29,7 +29,8 @@ Two modes: the change (default) or the whole project (only when asked).
 Before judging, read:
 
 - `CLAUDE.md` / `AGENTS.md`
-- the wiki index and `GLOSSARY.md`, if present
+- the wiki index (`../wiki/index.md` in a workspace-setup layout) and `GLOSSARY.md` (the right one via `GLOSSARY-MAP.md` if the root has it), if present
+- the ADRs in `docs/adr/`, if present: read the titles, open the ones touching the changed area. They are part of the yardstick. Only accepted ADRs count (no `Status`, or `accepted`); ignore `proposed`, `deprecated` and `superseded` ones
 - the folder structure
 - 2-3 neighbouring files of the same kind as the changed ones
 
@@ -50,6 +51,7 @@ This rule is what makes the review usable on old codebases.
 
 | Priority | Smell | Signal in the code |
 |---|---|---|
+| P1 | Against a decision | The change contradicts an accepted ADR in docs/adr/, or names a domain concept with a term GLOSSARY.md lists under _Avoid_. Quote the ADR or glossary line |
 | P1 | Copy-paste | A block almost identical to one that already exists, in the change or in the project. Search the codebase; name the existing one with its path |
 | P1 | Wrong placement | By the project's conventions: feature logic in a base class or generic shared helper; business logic in controllers, repositories or middleware when the project separates them |
 | P1 | Missing concept | The same if/switch on the same type or state in several places, or a new flag or enum added only to create one more "mode" inside an existing flow |
@@ -69,6 +71,8 @@ This rule is what makes the review usable on old codebases.
 ## 5. Remedies
 
 Prefer the smallest refactoring move from `codebase-design` that removes the problem, and name it in the finding's Fix line. Look actively for code judo: when it exists it is the best move.
+
+For an "Against a decision" finding about an ADR, the fix is: align with the ADR, or ask the user to supersede it with a new ADR (effort large: it needs the user's decision). Never propose editing the ADR to match the code. An `_Avoid_` term is fixed by renaming it to the glossary term inside the change (usually effort small).
 
 Never propose: an architecture migration (introducing DDD, layers or CQRS where the project doesn't have them); renaming or reformatting outside the change. Both are project decisions, not fixes to this change, and they bury the real diff.
 
