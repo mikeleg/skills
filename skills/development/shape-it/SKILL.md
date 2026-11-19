@@ -181,7 +181,7 @@ Grilling mode, inspired by Pocock's `grilling` skill. Opt-in: the user asked to 
 **6. Apply in place, never regenerate the files.**
 - Keep every `**Estimate (h):**`, `**Actual (h):**` and `**Tracker:**` line.
 - Never renumber existing slices: a split S3 becomes S3a, S3b; a new slice takes the next free number; update `Blocked by` edges accordingly.
-- Do not touch done slices (the ones with an Actual).
+- Do not touch done slices (`**Status:** done` or an `**Actual (h):**` line).
 - A changed slice that had an Estimate gets that line marked `(stale: re-run estimate)`. Suggest running `estimate` at the end.
 - Update the glossary and ADRs per `references/domain-docs.md`. Superseding an ADR needs the user's ok, already obtained in the rounds.
 - If slices were published to a tracker, ask before updating or creating work items / issues (same rule as step 7).
