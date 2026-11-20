@@ -99,7 +99,7 @@ Good interfaces make testing natural:
 
 The interface decides depth; the implementation behind it still has to be easy to read and change. Write it by these rules (Robert C. Martin, *Clean Code*):
 
-- **Names.** Reveal intent and use the domain's terms (the project's `GLOSSARY.md` if it exists). No abbreviations, encodings or type prefixes. Functions are verbs, types are nouns. If a name needs a comment, change the name.
+- **Names.** Reveal intent and use the domain's terms (the project's `GLOSSARY.md` if it exists, via `GLOSSARY-MAP.md` if contexts are split). No abbreviations, encodings or type prefixes. Functions are verbs, types are nouns. If a name needs a comment, change the name.
 - **Functions.** Each does one thing, at one level of abstraction. Few arguments: past three, group them into a type that has a domain name. No flag arguments: two behaviors are two functions. No hidden side effects. A function either does something or answers something, not both (command-query separation).
 - **Errors.** Use the stack's error mechanism (exceptions or result types), not error codes. Don't return or pass null where the language offers something better. Never swallow an error.
 - **Comments.** Explain why, never what. Delete commented-out code and comments the code already says.

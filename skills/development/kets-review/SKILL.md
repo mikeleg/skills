@@ -33,7 +33,7 @@ Two modes: the change (default) or the whole project (only when asked).
 Before judging, read:
 
 - `CLAUDE.md` / `AGENTS.md`
-- the wiki index (`../wiki/index.md` in a workspace-setup layout) and `GLOSSARY.md` (the right one via `GLOSSARY-MAP.md` if the root has it), if present
+- `GLOSSARY.md` (the right one via `GLOSSARY-MAP.md` if the root has it), if present
 - the ADRs in `docs/adr/`, if present: read the titles, open the ones touching the changed area. They are part of the yardstick. Only accepted ADRs count (no `Status`, or `accepted`); ignore `proposed`, `deprecated` and `superseded` ones
 - the folder structure
 - 2-3 neighbouring files of the same kind as the changed ones

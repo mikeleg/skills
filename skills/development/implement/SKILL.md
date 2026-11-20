@@ -88,7 +88,7 @@ Adapt the patterns to the stack if it uses others. Every hit is either removed o
 
 ## 8. Commit
 
-Commit to the current branch. The message says what the change does and why; it also names any floor exception from step 7. When the work is a slice from a shape-it `backlog.md`, add `**Status:** done` to that slice (next to Size) and include that change in the same commit.
+Commit to the current branch. The message says what the change does and why; it also names any floor exception from step 7. A decision taken during the work that passes the three-criteria test in `${CLAUDE_SKILL_DIR}/../shape-it/references/domain-docs.md` gets its ADR in `docs/adr/` in the same commit. When the work is a slice from a shape-it `backlog.md`, add `**Status:** done` to that slice (next to Size) and include that change in the same commit.
 
 ## Final report
 

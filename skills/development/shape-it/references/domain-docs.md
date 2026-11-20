@@ -13,7 +13,7 @@ Contents:
 
 ## Where the files live
 
-Always these paths, even if a `../wiki/` exists:
+Always these paths:
 
 - `GLOSSARY.md` at the repo root (single context).
 - If `GLOSSARY-MAP.md` exists at the root, the repo has several contexts: the map lists where each context's `GLOSSARY.md` lives. Pick the context the feature belongs to; ask if unclear.

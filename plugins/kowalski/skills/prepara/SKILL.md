@@ -1,6 +1,6 @@
 ---
 name: prepara
-description: Kowalski, prepara! Sets up a development workspace (repo, wiki, run config, agent instructions), using the workspace-setup skill. Use ONLY when the user calls Kowalski by name to set up a workspace, e.g. "/kowalski:prepara", "kowalski, prepara il repo".
+description: Kowalski, prepara! Sets up a development workspace (repo, run config, agent instructions), using the workspace-setup skill. Use ONLY when the user calls Kowalski by name to set up a workspace, e.g. "/kowalski:prepara", "kowalski, prepara il repo".
 argument-hint: "[project name]"
 ---
 

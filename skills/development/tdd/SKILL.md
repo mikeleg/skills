@@ -7,7 +7,7 @@ description: Build one feature or fix one bug test-first in the red → green �
 
 TDD is the red → green → refactor loop. This skill is the reference that makes that loop produce tests worth keeping: what a good test is, where tests go, the anti-patterns, and the rules of the loop. Every section applies on every cycle: consult them before and during the loop, not after.
 
-When exploring the codebase, read `GLOSSARY.md` (if it exists) so test names and interface vocabulary match the project's domain language, and respect ADRs in the area you're touching.
+When exploring the codebase, read `GLOSSARY.md` (if it exists, via `GLOSSARY-MAP.md` if contexts are split) so test names and interface vocabulary match the project's domain language, and respect the ADRs in `docs/adr/` for the area you're touching.
 
 ## What a good test is
 
