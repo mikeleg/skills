@@ -66,6 +66,7 @@ workspace-setup  →  shape-it  →  (estimate)  →  implement  →  (bug?) tdd
 5. `tdd` builds a feature or fixes a bug test-first, red → green → refactor.
 6. `kets-review` reviews a change for the design regressions it introduces; `implement` runs it at its review step. `codebase-design` is the shared vocabulary of `tdd`, `implement` and `kets-review`.
 7. `analyze` reads a ticket or bug report and finds where the problem is, before `tdd` or `implement` fix it.
+8. `factory` runs the ready slices of a backlog through the line: a worktree per slice, `implement`, a PR and a review by a fresh agent with comments on the PR. You approve the backlog before and merge the PRs after.
 
 Each skill also works on its own: `implement` accepts any ticket or spec, `shape-it` works in a chat without a codebase.
 
@@ -81,7 +82,8 @@ Each skill also works on its own: `implement` accepts any ticket or spec, `shape
 | `implement` | Implements a slice, spec or ticket test-first from its acceptance criteria, checks the result against the spec, simplifies it, reviews it with `/code-review` and `kets-review`, guards the quality floor (no new suppressions, skipped tests or removed assertions) and commits. | Claude Code (uses the `/simplify` and `/code-review` skills when available). |
 | `tdd` | Builds a feature or fixes a bug test-first in the red → green → refactor loop: tests at agreed seams, one vertical slice at a time, refactor only on green. Adapted from Matt Pocock's `tdd` skill (MIT). | None. |
 | `codebase-design` | Shared vocabulary for designing deep modules (module, interface, seam, adapter, depth), where a vertical slice is a module, plus clean code rules for the code inside a module. Used by `tdd` and `implement`. Adapted from Matt Pocock's `codebase-design` skill (MIT). | None. |
-| `kets-review` | Reviews a change (diff, branch, PR or path), or on request the whole project's most-changed files, for the design regressions it introduces: spaghetti code and related smells, logic in the wrong place, duplicates of existing helpers, weaker types, pass-through wrappers. Judges the change against the project's own architecture, so it works on any stack and on old codebases; lists at most 3 improvement opportunities in the touched code without applying them. Complements `/code-review`. Used by `implement`. | None. Optional: `gh` or `az` to review a PR. |
+| `kets-review` | Reviews a change (diff, branch, PR or path), or on request the whole project's most-changed files, for the design regressions it introduces: spaghetti code and related smells, logic in the wrong place, duplicates of existing helpers, weaker types, pass-through wrappers. Judges the change against the project's own architecture, so it works on any stack and on old codebases; lists at most 3 improvement opportunities in the touched code without applying them. With `--comment` it posts the report on the PR (GitHub or Azure DevOps). Complements `/code-review`. Used by `implement`. | None. Optional: `gh` or `az` to review a PR and comment on it. |
+| `factory` | Runs a feature's shaped backlog through the line: picks the ready slices (not done, blockers merged, seams present) and, one at a time, creates a git worktree and branch, runs `implement` in a subagent, opens the PR and has a fresh agent review it with `kets-review --comment` and `/code-review`, with at most one fix round. Questions a slice raises come back to you; the merge stays with you. | Claude Code, `git`, and `gh` (GitHub) or `az` with the azure-devops extension (Azure DevOps). |
 | `analyze` | Analyzes a ticket, issue or bug report (Azure DevOps, GitHub, Jira or pasted text): cross-checks docs/wiki, code, git history and the database (read-only) to find where the problem is and propose the minimal fix. The answer is short and written for a person. | None to analyze pasted text. To read tickets: Azure CLI with the `azure-devops` extension, `gh`, or a connector for other trackers. |
 
 ### Work
@@ -105,7 +107,7 @@ Each skill also works on its own: `implement` accepts any ticket or spec, `shape
 
 Call him with `/kowalski:analisi 15307`, or just by name: `kowalski, analisi del 15307`.
 
-His commands run the skills in this repo: `/kowalski:pianifica` ([shape-it](#development)), `/kowalski:stima` ([estimate](#development)), `/kowalski:prepara` ([workspace-setup](#development)), `/kowalski:analisi` ([analyze](#development)), `/kowalski:implementa` ([implement](#development)), `/kowalski:review` ([kets-review](#development)), `/kowalski:email` ([reply-draft](#work)), `/kowalski:ore` ([log-task-hours](#work)), `/kowalski:video` ([product-video](#content)).
+His commands run the skills in this repo: `/kowalski:pianifica` ([shape-it](#development)), `/kowalski:stima` ([estimate](#development)), `/kowalski:prepara` ([workspace-setup](#development)), `/kowalski:analisi` ([analyze](#development)), `/kowalski:implementa` ([implement](#development)), `/kowalski:produci` ([factory](#development)), `/kowalski:review` ([kets-review](#development)), `/kowalski:email` ([reply-draft](#work)), `/kowalski:ore` ([log-task-hours](#work)), `/kowalski:video` ([product-video](#content)).
 
 Requirements: none to analyze pasted text. To read tickets: Azure CLI with the `azure-devops` extension (Azure DevOps), `gh` (GitHub), or a connector for other trackers. Those skills have their own requirements, listed in the tables above.
 
@@ -142,11 +144,11 @@ The pane's labels are in Italian.
 .claude-plugin/
   marketplace.json     # the mikeleg marketplace: defines mikeleg-skills and kowalski, lists each mod
 skills/
-  development/         # workspace-setup, shape-it, estimate, implement, tdd, codebase-design, kets-review, analyze
+  development/         # workspace-setup, shape-it, estimate, implement, tdd, codebase-design, kets-review, factory, analyze
   work/                # log-task-hours, reply-draft
   content/             # product-video
 plugins/
-  kowalski/            # skills: pianifica, stima, prepara, analisi, implementa, review, email, ore, video, each runs a skill from skills/
+  kowalski/            # skills: pianifica, stima, prepara, analisi, implementa, produci, review, email, ore, video, each runs a skill from skills/
 mods/
   cruscotto/           # a separate plugin: hooks/register.tsx, tests, sounds
 ```
@@ -158,7 +160,7 @@ Each skill lives in `skills/<category>/<name>/SKILL.md`, with any reference file
 - New skill: add `skills/<category>/<name>/SKILL.md` with `name` and `description` in the frontmatter, add a row to the tables above and list it in the `description` of the `mikeleg-skills` entry in `.claude-plugin/marketplace.json`.
 - New agent: add `plugins/<name>/skills/` and an entry in `marketplace.json` with `source: "./"` and its `skills` paths (they can include skills from `skills/`).
 - New mod: add `mods/<name>/` with its own `.claude-plugin/plugin.json` and an entry in `marketplace.json`.
-- Release: bump `version` in the plugin's `marketplace.json` entry (in the mod's `plugin.json` for mods), and changing a skill that kowalski wraps (analyze, implement, kets-review, reply-draft, log-task-hours, product-video, shape-it, estimate, workspace-setup) needs a kowalski bump too. Installed plugins update only when the version changes.
+- Release: bump `version` in the plugin's `marketplace.json` entry (in the mod's `plugin.json` for mods), and changing a skill that kowalski wraps (analyze, implement, factory, kets-review, reply-draft, log-task-hours, product-video, shape-it, estimate, workspace-setup) needs a kowalski bump too. Installed plugins update only when the version changes.
 
 ## License
 

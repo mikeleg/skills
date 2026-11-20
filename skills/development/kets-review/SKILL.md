@@ -1,6 +1,6 @@
 ---
 name: kets-review
-description: Review a change (current diff, branch, PR or path) for the design regressions it introduces, or the whole project on request ("project") - spaghetti code and related smells, logic in the wrong place, duplicates of existing helpers, weaker types, pass-through wrappers, contradictions with the project's ADRs (docs/adr/) and glossary (GLOSSARY.md) - judged against the project's own architecture, on any stack and any age of codebase. Lists at most 3 improvement opportunities in the touched code without applying them. Complements /code-review (bugs). Use when the user asks for a design, quality or structure review of a change, a spaghetti check, "/kets-review", or when implement reaches its review step.
+description: Review a change (current diff, branch, PR or path) for the design regressions it introduces, or the whole project on request ("project") - spaghetti code and related smells, logic in the wrong place, duplicates of existing helpers, weaker types, pass-through wrappers, contradictions with the project's ADRs (docs/adr/) and glossary (GLOSSARY.md) - judged against the project's own architecture, on any stack and any age of codebase. Lists at most 3 improvement opportunities in the touched code without applying them. With --comment, posts the report on the GitHub or Azure DevOps PR. Complements /code-review (bugs). Use when the user asks for a design, quality or structure review of a change, a spaghetti check, "/kets-review", or when implement reaches its review step.
 ---
 
 # Kets Review
@@ -16,6 +16,7 @@ Two modes: the change (default) or the whole project (only when asked).
 - The current branch's diff against its base (merge-base with the default branch), uncommitted changes included, new untracked files too (a plain `git diff` misses them; `git add -N` shows them without staging).
 - Also accepts a PR number, a branch, a commit or a commit range (`git show <sha>`, `git diff <a>..<b>`), or a path.
 - PR number: GitHub `gh pr diff <n>`. Azure DevOps: `az repos pr show` returns metadata, not a diff, so read the source and target branches from `az repos pr show --id <n>` (`sourceRefName`, `targetRefName`), run `git fetch origin <source> <target>`, then `git diff origin/<target>...origin/<source>`.
+- `--comment` (with a PR number): after the report, post it on the PR (step 8). The flag is not part of the target.
 - Path: limits the change's diff to those files or folders; it does not review whole files. To review whole files, use the project mode with that folder.
 - On the default branch with no uncommitted changes the merge-base diff is empty: fall back to the commits not yet pushed (`git diff @{u}..HEAD`, when an upstream exists and it is non-empty), otherwise to the last commit (`git diff HEAD~1..HEAD`). Say which one was used in the report's "Reviewed" line.
 - Empty diff (the fallback included, or nothing at all): say so, suggest the project mode, and stop. Never switch to it on your own.
@@ -98,3 +99,14 @@ Rules:
 - Leave out empty sections and lines ("Minor", "Left out", "Opportunities") instead of writing "none".
 
 If there is nothing to report, say so in one line; no filler praise. Be direct and specific, never rude, never watered down.
+
+## 8. Post on the PR (`--comment`)
+
+Only when the arguments include `--comment` and the target is a PR number. Without the flag never post. With the flag but no PR (local diff, branch, commit, path or project mode), say there is no PR to comment on and skip this step.
+
+- The comment is the step 7 report, written in plain full sentences whatever reply style the conversation uses, with `**kets-review**` as its first line so it stands out among the PR comments. Write it to a temp file; never pass it inline on the command line.
+- Provider, from `git remote get-url origin`: `github.com` → GitHub; `dev.azure.com` or `visualstudio.com` → Azure DevOps; anything else → say so and skip.
+- GitHub: `gh pr comment <n> --body-file <file>`.
+- Azure DevOps: `az repos pr` has no comment command, so create a thread through the REST API. Read `repository.id` and `repository.project.name` from `az repos pr show --id <n>`, and the organization from the remote URL. Build the thread JSON with an encoder (`jq`, Python, PowerShell `ConvertTo-Json`), never by string concatenation: `{"comments":[{"parentCommentId":0,"content":"<report>","commentType":1}],"status":<s>}`, with status `1` (active) when the verdict is "fixes needed", otherwise `4` (closed), so a comment-resolution policy blocks the merge only when there is something to fix. Post it: `az devops invoke --org https://dev.azure.com/<org> --area git --resource pullRequestThreads --route-parameters project=<project> repositoryId=<id> pullRequestId=<n> --http-method POST --in-file <file> --api-version 7.1`.
+- One comment per run. If the command fails (auth, permissions), show the error and say the report was not posted; the report in the conversation stands.
+- End by saying where the comment was posted.
