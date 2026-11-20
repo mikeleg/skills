@@ -116,9 +116,12 @@ Chat summary, short. When there are L slices, open with the warning: the totals 
 - **Azure DevOps**: when the slices are work items, offer to write the probable value of each remaining slice to `Microsoft.VSTS.Scheduling.OriginalEstimate`. Ask before writing to the board, then, following `shape-it`'s `references/azure-devops.md` (same `az` setup, org and project):
   `az boards work-item update --id <id> --fields "Microsoft.VSTS.Scheduling.OriginalEstimate=<probable>" --org <org>`
   If the work item type does not accept the field, report it once and skip; do not create Tasks to hold it.
-- **GitHub**: markdown only.
+- **GitHub**: when the slices are issues, offer to label each remaining slice's issue with its probable value, `estimate:<probable>h` (e.g. `estimate:5h`). Ask before writing, then, following `shape-it`'s `references/github.md` (same `gh` setup):
+  `gh label create "estimate:<probable>h" --color BFD4F2 --description "Agentic hours, probable" --force`
+  `gh issue edit <n> --add-label "estimate:<probable>h"`
+  One estimate label per issue: if it already has an `estimate:` label with another value, remove it in the same command (`--remove-label "estimate:<old>h"`). L slices and done slices get none.
 
-Do not change anything else on the work items.
+Do not change anything else on the work items or issues.
 
 ## Things that mean you are doing it wrong
 
