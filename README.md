@@ -64,7 +64,7 @@ workspace-setup  →  shape-it  →  (estimate)  →  implement  →  (bug?) tdd
 3. `estimate` (optional) turns the backlog into hours of agentic work, as a range per slice and two totals, for a customer quote and for planning.
 4. `implement` takes one slice (`implement S1`) and turns its acceptance criteria into tests, code, a review and a commit, running the `tdd` loop on each criterion.
 5. `tdd` builds a feature or fixes a bug test-first, red → green → refactor.
-6. `kets-review` reviews a change for the design regressions it introduces; `implement` runs it at its review step. `codebase-design` is the shared vocabulary of `tdd`, `implement` and `kets-review`.
+6. `kets-review` reviews a change for the design regressions it introduces; `implement` runs it at its review step. `codebase-design` is the shared vocabulary of `tdd`, `implement` and `kets-review`; `brand-voice` is the shared writing voice of the skills that write for a person.
 7. `analyze` reads a ticket or bug report and finds where the problem is, before `tdd` or `implement` fix it.
 8. `factory` runs the ready slices of a backlog through the line: a worktree per slice, `implement`, a PR and a review by a fresh agent with comments on the PR. You approve the backlog before and merge the PRs after.
 
@@ -97,6 +97,7 @@ Each skill also works on its own: `implement` accepts any ticket or spec, `shape
 
 | Skill | What it does | Requirements |
 | --- | --- | --- |
+| `brand-voice` | mikeleg's writing voice (direct, concrete, opinionated with humility), an Italian and English kill list of AI tells and a final pass. Shared reference read by `reply-draft`, `analyze`, `kets-review` and `product-video` before they write text for a person; also usable directly ("rewrite it in my voice"). | None. |
 | `product-video` | Rules and recipes for building or revising a product promo video in Remotion: voice-over (Gemini TTS), music, highlights on app screenshots, CTA, sync and delivery checks. | Node.js with Remotion, ffmpeg, Python. Optional: Gemini API key (`GEMINI_API_KEY`) for the voice, Claude in Chrome for screenshots. |
 
 ## Agents
@@ -146,7 +147,7 @@ The pane's labels are in Italian.
 skills/
   development/         # workspace-setup, shape-it, estimate, implement, tdd, codebase-design, kets-review, factory, analyze
   work/                # log-task-hours, reply-draft
-  content/             # product-video
+  content/             # brand-voice, product-video
 plugins/
   kowalski/            # skills: pianifica, stima, prepara, analisi, implementa, produci, review, email, ore, video, each runs a skill from skills/
 mods/
