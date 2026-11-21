@@ -13,7 +13,10 @@ Contents:
 **Status:** scoped <date> · **Implementer:** agent alone | pair | team | mixed · **Tracker:** none | github:<owner/repo> | ado:<org/project>
 
 ## Riskiest assumption
-<assumption>. The walking skeleton goes through it. Prototype: none | done (<answer>) | skipped (<why>).
+<assumption>. The walking skeleton goes through it. Prototype: none | done – <question> → <answer> (<spike/branch or artifact link>) | skipped (<why>).
+
+## Success signal
+<one observable, measurable signal that says the MVP worked, with a threshold, e.g. "≥ 50% of drafts accepted over 2 weeks">. Not met → <what we do: iterate, pivot, stop>.
 
 ## In scope (this round)
 - …
@@ -29,7 +32,7 @@ Contents:
 - <risk> – carried into slice <N>
 ```
 
-Only these sections: they are what implement (non-goals) and estimate (implementer, riskiest assumption, prototype status, open risks) read.
+Only these sections: they are what implement (non-goals) and estimate (implementer, riskiest assumption, prototype status, open risks) read, plus the success signal, which decides what happens after the last slice ships.
 
 ## backlog.md
 
@@ -77,7 +80,7 @@ Order is dependency order. A slice with no "Blocked by" can start in parallel.
 
 Idea: "a tool that watches our Slack #support channel and drafts replies from our docs".
 
-Riskiest assumption from the interview: *the docs are good enough that a draft is useful at all.* So the skeleton must go: real Slack message → retrieval over real docs → draft → human sees it. Not "set up Slack app" as S1.
+Riskiest assumption from the interview: *the docs are good enough that a draft is useful at all.* Success signal in scope.md: *≥ 50% of drafts accepted over two weeks of real traffic*. So the skeleton must go: real Slack message → retrieval over real docs → draft → human sees it. Not "set up Slack app" as S1.
 
 ```markdown
 ## S1 · A support message produces a visible draft reply from the docs
