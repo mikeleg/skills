@@ -84,6 +84,8 @@ A prototype is a throwaway artifact that answers **one** question. It is not a s
 - "Can we actually get this data out of the external system?" → spike script against the real API, on a scratch branch.
 - "Does this state model hold up?" → small simulation / test harness with fake data.
 
+**Default rule for the riskiest assumption**: if the riskiest assumption is not yet validated and can be tested within the timebox (one agent session), always propose a prototype on it, even if no other question survived. It is the cheapest way to de-risk the skeleton, and `estimate` widens the max when it is skipped. The user can still say no. If it cannot be tested within the timebox, say so in one line and carry it as a risk into slice 1.
+
 Tell the user: *the question*, *the cheapest artifact that answers it*, *the timebox*, and *what each possible answer changes in the backlog*. Then wait. If they say no, slice anyway, record `Prototype: skipped (<why>)` in `scope.md` and the open question as a risk carried into slice 1.
 
 If they say yes:
@@ -95,7 +97,7 @@ If they say yes:
 - **Record** in `scope.md`: `Prototype: done – <question> → <answer> (<branch or artifact link>)`, and change the backlog per what the answer implied.
 - **Throw it away.** The spike branch is never merged. Leave it unpushed or delete it after recording; if a slice reuses an idea, it is rewritten inside the slice with tests. Say this to the user in the hand off.
 
-Do not prototype out of habit. If no question survived the interview, skip this step and say so in one line.
+Do not prototype out of habit. If no question survived the interview and the riskiest assumption is already validated (or untestable within the timebox), skip this step and say so in one line.
 
 ## 5. Slice into tracer bullets
 
