@@ -14,6 +14,7 @@ Rules that emerged from the user's corrections. Apply them **from the first vers
 
 ## Texts
 - The client company's name is used **only as the product name** (e.g. "SS9 Brand Studio"). Elsewhere speak to the viewer: "il tuo logo", "il tuo brand", "i dati ufficiali del tuo brand" (your logo, your brand, your brand's official data) (the video is for whoever will adopt the product, not for whoever produces it).
+- Voice-over and on-screen copy follow `${CLAUDE_SKILL_DIR}/../brand-voice/SKILL.md` (point first, concrete, kill list, final pass), if that file is there. The pace and timing rules here win over it.
 - No invented claims: every sentence must be verifiable in the UI or in the sources; flag in the log those to be confirmed.
 - **CTA: never the link to the app** if users cannot sign up on their own. Use "Richiedi una demo" ("Request a demo") + the site's contact page, after checking that the anchor exists (`curl` + grep; in SPAs look for the id in the JS bundle).
 

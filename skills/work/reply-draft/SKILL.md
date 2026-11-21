@@ -19,7 +19,7 @@ Prepare a reply draft in Outlook through the Microsoft 365 connector. The draft 
 3. **Write the reply**:
    - Same language as the customer email.
    - Answer every question the customer asked.
-   - Concise, no AI-sounding filler.
+   - Concise, no AI-sounding filler. Write the body in the user's voice: read `${CLAUDE_SKILL_DIR}/../../content/brand-voice/SKILL.md`, if that file is there, and run its final pass. The thread's formality, greeting and sign-off still win over it.
    - Close like the user's past replies. If Outlook adds a signature automatically, do not add a signature block: reuse only the closing name line seen in past replies.
 4. **Create the draft**:
    - `outlook_create_reply_all_draft` if the original has recipients other than the user (To/Cc); otherwise `outlook_create_reply_draft`.

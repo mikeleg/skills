@@ -86,7 +86,7 @@ Every finding cites `file:line`, the concrete signal, why it is a problem here (
 
 ## 7. Report
 
-Write it in the conversation's language, for someone who hasn't read the diff: plain words first, the priority and smell name only as a tag. Fill the template in `report-template.md`, next to this file.
+Write it in the conversation's language, for someone who hasn't read the diff: plain words first, the priority and smell name only as a tag. Fill the template in `report-template.md`, next to this file. For the sentences inside it, follow the voice rules and the final pass in `${CLAUDE_SKILL_DIR}/../../content/brand-voice/SKILL.md`, if that file is there.
 
 Rules:
 
