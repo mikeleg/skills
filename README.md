@@ -98,6 +98,7 @@ Each skill also works on its own: `implement` accepts any ticket or spec, `shape
 | Skill | What it does | Requirements |
 | --- | --- | --- |
 | `brand-voice` | mikeleg's writing voice (direct, concrete, opinionated with humility), an Italian and English kill list of AI tells and a final pass. Shared reference read by `reply-draft`, `analyze`, `kets-review` and `product-video` before they write text for a person; also usable directly ("rewrite it in my voice"). | None. |
+| `mikeleg-brand` | mikeleg's brand system: design principles, logo, palette with measured contrast, typography, CSS variables, Google Fonts import and Tailwind mapping for any visual artifact. For writing it points to `brand-voice`, the single copy of the voice. | None. |
 | `product-video` | Rules and recipes for building or revising a product promo video in Remotion: voice-over (Gemini TTS), music, highlights on app screenshots, CTA, sync and delivery checks. | Node.js with Remotion, ffmpeg, Python. Optional: Gemini API key (`GEMINI_API_KEY`) for the voice, Claude in Chrome for screenshots. |
 
 ## Agents
@@ -147,7 +148,7 @@ The pane's labels are in Italian.
 skills/
   development/         # workspace-setup, shape-it, estimate, implement, tdd, codebase-design, kets-review, factory, analyze
   work/                # log-task-hours, reply-draft
-  content/             # brand-voice, product-video
+  content/             # brand-voice, mikeleg-brand, product-video
 plugins/
   kowalski/            # skills: pianifica, stima, prepara, analisi, implementa, produci, review, email, ore, video, each runs a skill from skills/
 mods/
