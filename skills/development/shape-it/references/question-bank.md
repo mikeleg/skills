@@ -14,6 +14,7 @@ Each question says what it protects the backlog from. Pick the 3–5 whose answe
 
 | Question | Protects from | When it matters |
 |---|---|---|
+| What tells us this worked? (proposed: <signal ≥ threshold>) | An MVP nobody can declare a success or a failure | Every MVP; fold it into the batch as a default if the brief names none |
 | Hard deadline or budget? | Over-slicing; a 12-slice backlog for a 3-day window | Any mention of a date, a demo, a launch |
 | Existing data or system this has to live with? (migrations, legacy API, auth) | Discovering the integration cost in slice 4 | Features in existing products; anything with "import", "sync", "migrate" |
 | Is this throwaway (validate and maybe delete) or foundation (first version of the real thing)? | Gold-plating a throwaway; hacking a foundation | Greenfield MVPs |

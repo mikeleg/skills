@@ -53,8 +53,10 @@ Rules:
 The question bank, with what each question protects you from, is in `references/question-bank.md`. Read it the first time you run this skill in a session. The three that are almost always on the list:
 
 1. **What is the riskiest assumption** – technical, product, or integration? (decides what the walking skeleton must go through)
-2. **Hard constraints**: deadline, stack, integrations, data that already exists, who implements (agent alone / pair / human team). (decides slice granularity, see step 5)
+2. **Who implements**: agent alone / pair / human team / mixed. (decides slice granularity, see step 5)
 3. **What is explicitly out?** (protects from scope creep; you propose the list, they edit it)
+
+Hard constraints (deadline, existing data or systems, integrations) are Tier 2 in the bank: ask them when the brief points at them. For an MVP, also propose a **success signal** as the default of question 1 or 3 when the brief gives none ("I'll measure success as X ≥ Y"): it goes in `scope.md`.
 
 If the user answers with a wall of text, extract decisions, restate them as bullets, and move on. Ask a second batch only if an answer created a *new* fork in the slices. Two batches is the ceiling.
 
@@ -66,7 +68,9 @@ The method:
 - **Riskiest assumption first**: route the skeleton deliberately through the thing most likely to kill the idea (the flaky third-party API, the unclear data model, the UX nobody has validated). If the skeleton proves that, everything else is incremental.
 - **In / Out / Non-goals**: three explicit lists. "Non-goals" are things that look like they belong but you are consciously not doing *in this MVP* (and why, in one clause). This list is what prevents the backlog from doubling in week two.
 
-Write this as `scope.md` (template in `references/templates.md`): only riskiest assumption, in / out / non-goals, binding constraints and open risks, the sections the implementing and estimating steps read. No problem statement, persona or decision log. Keep it under one screen. If it needs more, the scope is too big; cut.
+- **Success signal**: one observable signal with a threshold that says the MVP worked, and what happens if it is not met. If you cannot name one, the riskiest assumption is not clear yet. For a small feature in an existing product it can be "the AC of the last slice pass in production".
+
+Write this as `scope.md` (template in `references/templates.md`): only riskiest assumption, success signal, in / out / non-goals, binding constraints and open risks, the sections the implementing and estimating steps read. No problem statement, persona or decision log. Keep it under one screen. If it needs more, the scope is too big; cut.
 
 ### A note on "MVP" vs "new feature"
 
@@ -80,7 +84,16 @@ A prototype is a throwaway artifact that answers **one** question. It is not a s
 - "Can we actually get this data out of the external system?" → spike script against the real API, on a scratch branch.
 - "Does this state model hold up?" → small simulation / test harness with fake data.
 
-Tell the user: *the question*, *the cheapest artifact that answers it*, and *what each possible answer changes in the backlog*. Then wait. If they say no, slice anyway and record the open question as a risk in the first slice. If they say yes, build it (in codebase mode on a branch named `spike/<question>`; in greenfield mode as an artifact), get the answer, record it in `scope.md`, then slice.
+Tell the user: *the question*, *the cheapest artifact that answers it*, *the timebox*, and *what each possible answer changes in the backlog*. Then wait. If they say no, slice anyway, record `Prototype: skipped (<why>)` in `scope.md` and the open question as a risk carried into slice 1.
+
+If they say yes:
+
+- **One question, one artifact.** Phrase the question so the answer is yes / no / a number ("Can we read invoice line items from the ERP API with our credentials?"), not "explore the API".
+- **Timebox**: at most one agent session (roughly two hours of work). If it runs out without an answer, stop: the answer is "not cheaply knowable", which is itself an answer. Record it and carry the risk into slice 1.
+- **Where**: codebase mode on a branch `spike/<question-slug>`, code under a `spike/` folder or a scratch file, no tests, no refactors of real code. Greenfield mode: an HTML artifact for UI questions, a single script for data/API questions. For a UI mockup, use `frontend-design` if available so it looks like the real thing the user will judge.
+- **Done** when the question has an answer and the evidence for it (a screenshot, the API response, the simulation output). Not when the prototype is polished.
+- **Record** in `scope.md`: `Prototype: done – <question> → <answer> (<branch or artifact link>)`, and change the backlog per what the answer implied.
+- **Throw it away.** The spike branch is never merged. Leave it unpushed or delete it after recording; if a slice reuses an idea, it is rewritten inside the slice with tests. Say this to the user in the hand off.
 
 Do not prototype out of habit. If no question survived the interview, skip this step and say so in one line.
 
@@ -150,7 +163,8 @@ If neither tracker is reachable, say so in one line and stop at markdown. Do not
 Final message, short:
 - Where the files are, including the glossary terms and ADRs written.
 - Which slice to start with and why (it is the skeleton).
-- Any open risk that was not prototyped.
+- Any open risk that was not prototyped; if a prototype ran, its answer and that its branch/artifact is throwaway.
+- The success signal, for an MVP.
 - That implementation is a separate skill/flow (`implement`); do not start implementing unless asked.
 - Optional next step: `estimate` gives the agentic work hours of the backlog, e.g. for a customer quote.
 
@@ -199,7 +213,8 @@ Grilling mode, inspired by Pocock's `grilling` skill. Opt-in: the user asked to 
 - Slices are horizontal (all backend, then all frontend).
 - An acceptance criterion cannot be checked by a script or a human in under a minute.
 - The backlog has more than ~12 slices for an MVP. Cut, or you have two MVPs.
-- `scope.md` has no non-goals.
+- `scope.md` has no non-goals, or an MVP's `scope.md` has no success signal.
+- A prototype was merged, grew tests, or answered more than one question.
 - You published to a tracker without being told to.
 - You started writing code that is not a prototype.
 - An ADR records something easy to reverse, or a decision with no real alternative.
