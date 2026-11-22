@@ -1,11 +1,11 @@
 ---
 name: factory
-description: Run a feature's shaped backlog through the line - pick the slices that are ready (not done, blockers merged, seams present) from the GitHub issues, Azure DevOps work items or backlog.md, and for each one create a git worktree and branch, implement it in a subagent, open a PR (or keep a local branch when there is no remote), have a fresh agent review it and check that every acceptance criterion has a test, fix what it finds and re-review (at most 2 fix rounds), then merge it when clean. The user's gate is the approved backlog before the run; they only get back STOP questions, PRs that could not be merged and the findings left. Use when the user wants to run, produce or process a backlog, implement all the ready slices, "run the factory", "produci il backlog", "/factory <feature>".
+description: Run a feature's shaped backlog through the line - pick the slices that are ready (not done, blockers merged, seams present) from the GitHub issues, Azure DevOps work items or backlog.md, and for each one create a git worktree and branch, implement it in a subagent, open a PR (or keep a local branch when there is no remote), have a fresh agent review it and check that every acceptance criterion has a test, fix what it finds and re-review until every comment is resolved (at most 3 fix rounds), then merge it when clean. The user's gate is the approved backlog before the run; they only get back STOP questions, PRs that could not be merged and the findings left. Use when the user wants to run, produce or process a backlog, implement all the ready slices, "run the factory", "produci il backlog", "/factory <feature>".
 ---
 
 # Factory
 
-Take a feature backlog shaped by shape-it from its ready slices to merged code. This version is attended and sequential: the user starts it, slices go one at a time, each one is implemented, reviewed, fixed and merged without waiting for the user. The only human gate is the backlog the user approved before the run. What comes back to the user: questions a slice raises (`STOP`), PRs that could not be merged and why, and the review findings still open after the fix rounds.
+Take a feature backlog shaped by shape-it from its ready slices to merged code. This version is attended and sequential: the user starts it, slices go one at a time, each one is implemented, reviewed, fixed and merged without waiting for the user. The only human gate is the backlog the user approved before the run. What comes back to the user: questions a slice raises (`STOP`), PRs that could not be merged and why, and the review comments still open after the fix rounds.
 
 ## 0. Orient
 
@@ -60,11 +60,13 @@ Show a table (slice, state, reason) and the ready slices in backlog order. Ask t
 
 When the slice came from a tracker, write its text to a temp file `<spec>` outside the repo: title, then the body (GitHub) or the Description and the acceptance criteria (Azure DevOps, HTML converted to markdown). It is the spec for the slice.
 
+`<shots>` is `../<repo>-<feature>-S<id>-screenshots/`, a folder outside the repo, for the slice's screenshots (2b).
+
 ### 2b. Implement
 
 Launch a subagent with this brief, placeholders filled:
 
-> Implement slice S<id> of `docs/backlog/<feature>/backlog.md`. [Tracker only: The spec for S<id> is `<spec>`, outside the worktree: read it and use it instead of the slice text in `backlog.md`; implement's `**Status:** done` update goes to `backlog.md` as usual if the slice is there.] Work only in `<wt>`: run every command there and read or write only files under it. Read `<skills>/implement/SKILL.md` and follow it, skipping its frontmatter; `${CLAUDE_SKILL_DIR}` in that file stands for `<skills>/implement`. There is no user to ask: wherever implement says to stop and ask or to wait for the user (ADR conflict, duplicate slice, seams to agree), stop there, change nothing more, don't commit, and return `STOP:` followed by the question verbatim, with the quotes implement asks for. If `/simplify` or `/code-review` can't be invoked as a skill, do that step yourself on the diff and say so in the report. When done, return `DONE:`, the commit SHA and implement's final report.
+> Implement slice S<id> of `docs/backlog/<feature>/backlog.md`. [Tracker only: The spec for S<id> is `<spec>`, outside the worktree: read it and use it instead of the slice text in `backlog.md`; implement's `**Status:** done` update goes to `backlog.md` as usual if the slice is there.] Work only in `<wt>`: run every command there and read or write only files under it. Read `<skills>/implement/SKILL.md` and follow it, skipping its frontmatter; `${CLAUDE_SKILL_DIR}` in that file stands for `<skills>/implement`. There is no user to ask: wherever implement says to stop and ask or to wait for the user (ADR conflict, duplicate slice, seams to agree), stop there, change nothing more, don't commit, and return `STOP:` followed by the question verbatim, with the quotes implement asks for. If `/simplify` or `/code-review` can't be invoked as a skill, do that step yourself on the diff and say so in the report. If the work changes an existing test, every case the old test covered must still be covered and pass: don't delete cases, don't weaken assertions, don't change expected values unless the slice's criteria require that behavior change; if they do, update the case, never remove it, and the reason is the criterion. If the diff touches UI files (views, components, templates, styles, pages) or UI text, capture in `<shots>` a PNG of every changed screen after the change, plus a "before" PNG when an existing screen changes (capture it before editing): run the app as `CLAUDE.md` says, or with the `run` skill, Playwright or a browser tool where available. If the app can't be run or captured, say so in one line. When done, return `DONE:`, the commit SHA, implement's final report, the changed existing tests (file/test name, what changed, why, "old cases kept") and the screenshot paths.
 
 - `STOP:` → leave the worktree and the branch as they are (the next run lists the slice as in progress), keep the question for the final report, move on to the next slice.
 - `DONE:` → check it: `git -C <wt> log origin/<default>..HEAD` shows the commit. In backlog.md mode the slice also has `**Status:** done` in `<wt>`'s `backlog.md`. If not, treat it as a stop and say what is missing.
@@ -73,32 +75,47 @@ Launch a subagent with this brief, placeholders filled:
 
 Remote modes: `git -C <wt> push -u origin slice/<feature>/S<id>`. Local mode: no PR; the review target is the branch `slice/<feature>/S<id>` and its diff `git diff <default>...slice/<feature>/S<id>`. Skip to 2d.
 
-- Title `S<id> · <slice title>`. Body, written to a temp file: a link to the slice, its tracker URL if it has one, and implement's final report.
+- Title `S<id> · <slice title>`. Body, written to a temp file, short, for a person who may read it, with no repetition: 2-4 lines on what changes; the criterion → test list, one line each; "Tests changed" when an existing test changed, one line per test: file/test name, what changed, why (the criterion), "old cases kept"; "Screenshots" when the UI changed (below); the slice link and its tracker URL if it has one. Implement's full report goes to the final report, not into the PR.
 - GitHub: `gh pr create --base <default> --head slice/<feature>/S<id> --title "<title>" --body-file <file>`. When the slice is an issue, the body includes the line `Closes #<issue>`.
-- Azure DevOps: `az repos pr create --source-branch slice/<feature>/S<id> --target-branch <default> --title "<title>" --description "@<file>" --org ... --project ...`, plus `--work-items <id>` when the slice is a work item. The description is capped at 4000 characters: if the body is longer, keep the slice link, the tracker and each criterion → its test, and cut the rest of the report.
+- Azure DevOps: `az repos pr create --source-branch slice/<feature>/S<id> --target-branch <default> --title "<title>" --description "@<file>" --org ... --project ...`, plus `--work-items <id>` when the slice is a work item. The description is capped at 4000 characters: keep the body under it.
 - Note the PR number.
+- Screenshots, when `<shots>` has PNGs: attach them to the PR, then delete the temp files.
+  - GitHub: the CLI can't upload images to a PR. Commit them to the orphan branch `pr-assets`, never to the slice branch, so they never reach `<default>`. If `git ls-remote --heads origin pr-assets` is empty, create it once in a temporary worktree: `git worktree add --orphan -b pr-assets ../<repo>-pr-assets` (or `git switch --orphan` in it); otherwise `git worktree add ../<repo>-pr-assets pr-assets` after fetching. Copy the PNGs to `<feature>/S<id>/<name>.png`, commit, push, `git worktree remove` the temporary worktree. Embed them in the PR body, then `gh pr edit <n> --body-file`: `![<name>](https://github.com/<owner>/<repo>/blob/pr-assets/<feature>/S<id>/<name>.png?raw=true)`. The `pr-assets` branch stays: the PR images depend on it.
+  - Azure DevOps: upload each PNG as a PR attachment, `az devops invoke --area git --resource pullRequestAttachments --route-parameters project=<project> repositoryId=<id> pullRequestId=<n> fileName=<name>.png --http-method POST --in-file <png> --api-version 7.1-preview`. Check that it sends the file as binary (`application/octet-stream`); if it can't, use `curl --data-binary @<png>` with a token from `az account get-access-token --resource 499b84ac-1321-427f-aa17-267ca6975798`. Reference the returned `url` in the description as `![<name>](<url>)`, then `az repos pr update --id <n> --description "@<file>"`.
+  - Local mode: keep `<shots>` and list its paths in the final report; don't delete it.
+  - The app can't be run or captured: one line under "Screenshots" in the PR body says so. It doesn't block the merge.
 
 ### 2d. Review by a fresh agent
 
 Launch a new subagent, one that never saw the implementation, with this brief. The acceptance criteria are the ones in `<spec>` or in the slice in `backlog.md`.
 
-> Review PR <n>, slice S<id>. Work in `<wt>`. Read `<skills>/kets-review/SKILL.md` and follow it with the arguments `<n> --comment`; `${CLAUDE_SKILL_DIR}` in that file stands for `<skills>/kets-review`. Then the correctness review. GitHub: run `/code-review <n> --comment`. Azure DevOps: `/code-review` can't comment there, so run `/code-review slice/<feature>/S<id>` and post its findings as one thread the way kets-review step 8 posts on Azure DevOps, with `**code-review**` as the first line and the thread active if there is any finding, closed otherwise. If `/code-review` can't be invoked, review the diff for correctness bugs yourself and post that instead, saying so. Then the tests: map every acceptance criterion of the slice (`<spec>` or `backlog.md`) to the test that validates it, and run the full test suite. Report the criteria that have no test, whose test doesn't really check the criterion, or whose test fails. Return the kets-review verdict, the code-review findings, the criterion → test map with its gaps, the test suite result and where each comment was posted.
+> Review PR <n>, slice S<id>. Work in `<wt>`. Read `<skills>/kets-review/SKILL.md` and follow it with the arguments `<n> --comment`; `${CLAUDE_SKILL_DIR}` in that file stands for `<skills>/kets-review`. Then the correctness review. GitHub: run `/code-review <n> --comment`. Azure DevOps: `/code-review` can't comment there, so run `/code-review slice/<feature>/S<id>` and post its findings as one thread the way kets-review step 8 posts on Azure DevOps, with `**code-review**` as the first line and the thread active if there is any finding, closed otherwise. If `/code-review` can't be invoked, review the diff for correctness bugs yourself and post that instead, saying so. Then the tests: map every acceptance criterion of the slice (`<spec>` or `backlog.md`) to the test that validates it, and run the full test suite. Report the criteria that have no test, whose test doesn't really check the criterion, or whose test fails. Check the existing tests the slice changed: `git diff <default>...HEAD` on the test files; for each modified or deleted existing test compare the old cases with the new ones; a lost case or a weakened assertion that no criterion requires is a finding. Check that the PR body lists each changed existing test under "Tests changed". On a re-review, check that every earlier review comment on the PR got a reply and is resolved; one that didn't is a finding. Keep every comment you post short: one line per finding. Return the kets-review verdict, the code-review findings, the criterion → test map with its gaps, the test suite result, the lost or weakened test cases, the unresolved earlier comments and where each comment was posted.
 
 Local mode, no PR: run kets-review on the branch without `--comment`, and `/code-review slice/<feature>/S<id>`; post nothing, return the findings to the factory. The brief otherwise stays the same.
 
-**Clean** means all of: the kets-review verdict is not "fixes needed", no real code-review bug, every criterion has a passing test that checks it, the full suite is green.
+**Clean** means all of: the kets-review verdict is not "fixes needed", no real code-review bug, every criterion has a passing test that checks it, no existing test lost a case or weakened an assertion without a criterion requiring it, the full suite is green, every earlier review comment has a reply and is resolved.
 
-### 2e. Fix and re-review, at most 2 fix rounds
+### 2e. Fix and re-review, at most 3 fix rounds
 
 Never ask the user in this loop. If the review is not clean, launch a fix subagent in `<wt>` with the review's findings. It:
 
 - fixes every real finding, including kets-review "Against a decision" ones, by aligning the code with the ADR; it never edits or supersedes an ADR and never asks;
 - writes the missing tests so each acceptance criterion is validated by a test (or, where implement allows it, a named executable check);
+- when it changes an existing test, every case the old test covered must still be covered and pass: no deleted cases, no weaker assertions, no changed expected values unless a criterion requires that behavior change (then the case is updated, not removed, and the reason is the criterion); it adds that test to "Tests changed" in the PR body (GitHub `gh pr edit <n> --body-file`; Azure DevOps `az repos pr update --id <n> --description "@<file>"`);
+- for every comment the review posted on the PR: fixes it, or, if it is not a real issue, says why in one line; replies to that comment or thread in one line saying what was done; resolves it (below). Every comment it posts is one short line;
 - runs the full suite, commits, and pushes (not in local mode).
 
-Then launch a NEW fresh review agent with the 2d brief (on a PR it posts a new comment). Repeat until clean, for at most 2 fix rounds. Still not clean after round 2: don't merge, leave the PR (or the branch) open with its comments, and keep the remaining findings for the final report.
+Resolving, per provider:
+
+- GitHub inline review threads (from `/code-review --comment`): reply, then resolve with `gh api graphql` `resolveReviewThread(input:{threadId:"<id>"})`. List the threads with the `pullRequest.reviewThreads` query: `id`, `isResolved`, `comments`.
+- GitHub top-level PR comments (kets-review) can't be resolved: reply with a PR comment (`gh pr comment <n>`) that names the comment it answers.
+- Azure DevOps threads: reply in the thread, then set its status to fixed (`2`), or wontFix (`3`) for a justified non-issue: `az devops invoke --area git --resource pullRequestThreads --route-parameters project=<project> repositoryId=<id> pullRequestId=<n> threadId=<t> --http-method PATCH --in-file <file> --api-version 7.1`, the file holding `{"status":2}`.
+
+Then launch a NEW fresh review agent with the 2d brief (on a PR it posts a new comment). Repeat until clean and every comment is resolved, for at most 3 fix rounds. Still not clean after round 3: don't merge, leave the PR (or the branch) open with its comments, and keep the remaining findings and the comments still open for the final report.
 
 ### 2f. Merge when clean
+
+Merge only when the review is clean and, in remote modes, the PR has no unresolved review thread: GitHub, no `isResolved:false` thread in the `reviewThreads` query; Azure DevOps, no thread in status active or pending. Otherwise it is not clean.
 
 - GitHub: `gh pr merge <n> --merge`, or the merge strategy `CLAUDE.md` names. No `--delete-branch`: it also tries to delete the local branch, which fails while it is checked out in `<wt>`; the cleanup below deletes it.
 - Azure DevOps: `az repos pr update --id <n> --status completed --transition-work-items true --delete-source-branch true --org ...`.
@@ -109,10 +126,10 @@ After a successful merge, clean up yourself, never leave it to the user, in this
 
 ## 3. Clean up and final report
 
-At the end of the run delete the temp files the factory wrote (PR bodies, slice spec files, thread JSON) and run `git worktree prune`.
+At the end of the run delete the temp files the factory wrote (PR bodies, slice spec files, thread JSON, screenshots already uploaded; the `pr-assets` branch stays) and run `git worktree prune`.
 
-- Each slice run: merged (PR link, or merge commit in local mode) or left open and why (merge refused, findings left after round 2); how many review rounds it took and what was fixed; the tests added.
-- Findings still open, per slice, with where they were posted.
+- Each slice run: merged (PR link, or merge commit in local mode) or left open and why (merge refused, findings left after round 3); how many review rounds it took and what was fixed; the tests added; the existing tests changed; implement's report; where the screenshots are (local mode, or when they could not be attached).
+- Findings and review comments still open, per slice, with where they were posted.
 - Each `STOP` question verbatim, with its worktree. Once the user has answered, either finish the slice by hand in its worktree, or discard it: `git worktree remove --force <wt>` (a stop leaves uncommitted work), `git branch -D slice/<feature>/S<id>`, and in remote modes `git push origin --delete slice/<feature>/S<id>` only if the branch was pushed, so the next run picks the slice up again.
 - Slices skipped and why: in progress, waiting, no seams (→ shape-it refine).
 - Cleaned up: the worktrees and branches of the merged slices, the temp files, stale worktree entries.

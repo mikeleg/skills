@@ -14,10 +14,10 @@ flowchart TD
         impl -- "STOP: ADR, duplicate, seams" --> stop["Question kept for you<br/>next slice"]
         impl --> pr["PR (GitHub / Azure DevOps)<br/>or local branch"]
         pr --> review["Fresh review<br/>subagent x1<br/>kets-review, code-review,<br/>criterion → test, full suite"]
-        review -- "not clean (max 2 rounds)" --> fix["Fix + missing tests<br/>subagent x1 per round"]
+        review -- "not clean or comment open (max 3 rounds)" --> fix["Fix, reply to and resolve every comment<br/>+ missing tests, subagent x1 per round"]
         fix --> review
-        review -- "clean" --> merge["Automatic merge"]
-        review -- "still not clean after round 2" --> open["PR / branch left open"]
+        review -- "clean, every comment resolved" --> merge["Automatic merge"]
+        review -- "still not clean after round 3" --> open["PR / branch left open"]
         merge --> clean["Cleanup<br/>worktree, local + remote branch, fetch --prune"]
         clean -- "recompute states:<br/>unblocked slices run now" --> ready
     end
@@ -45,16 +45,16 @@ The session where you run `/kowalski:produci` is the orchestrator: it picks the 
 | Step | Who does it | Subagents per slice |
 | --- | --- | --- |
 | States, worktree, spec file from the tracker | main session | 0 |
-| Implement: tdd, spec check, `/simplify`, `/code-review`, `kets-review`, commit | implement subagent | 1 |
-| PR or local branch | main session | 0 |
-| Review: kets-review, code-review, each criterion → its test, full suite | fresh subagent that never saw the code | 1 |
-| Fix: every finding, code aligned with the ADRs, missing tests written | fix subagent, one per round | 0–2 |
-| New review after each fix | a new subagent each time | 0–2 |
+| Implement: tdd, spec check, `/simplify`, `/code-review`, `kets-review`, commit, screenshots when the UI changes | implement subagent | 1 |
+| PR (short body: summary, criterion → test, tests changed, screenshots) or local branch | main session | 0 |
+| Review: kets-review, code-review, each criterion → its test, no lost test cases, full suite | fresh subagent that never saw the code | 1 |
+| Fix: every finding, code aligned with the ADRs, missing tests written, every review comment replied to and resolved | fix subagent, one per round | 0–3 |
+| New review after each fix | a new subagent each time | 0–3 |
 | Merge and cleanup | main session | 0 |
-| **Total** | | **2–6** |
+| **Total** | | **2–8** |
 
-- Clean at the first review: 2 subagents. Two fix rounds: 6. A slice that stops: 1.
-- Example: 5 ready slices use 10 to 30 subagents, in sequence.
+- Clean at the first review: 2 subagents. Three fix rounds: 8. A slice that stops: 1.
+- Example: 5 ready slices use 10 to 40 subagents, in sequence.
 - The skill doesn't pin a model: subagents use the session's model.
 - Inside implement, the spec check and `/code-review` start agents of their own where the environment allows it. A subagent usually can't start others; then it does those steps itself and says so in its report.
 
