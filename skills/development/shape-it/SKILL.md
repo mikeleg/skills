@@ -147,6 +147,8 @@ Besides `scope.md` and `backlog.md`:
 
 Locations, formats and rules are in `references/domain-docs.md`. Read it before writing either.
 
+Plain-language layer: every slice gets an `**In brief:**` line, and `scope.md` gets a "Product in brief" section (plus "Where AI is used" when the product uses AI or calls external services that decide something). `estimate`'s reader summary and anyone new to the project read these instead of the acceptance criteria. Test: someone who never read the requirements understands what the slice does from that line alone.
+
 Show the user the backlog in chat as well: slice titles, sizes, blocking edges. Not the full bodies; they can open the file. In the same message list the glossary terms added and the ADR titles.
 
 ## 7. Publish (ask first)
@@ -198,6 +200,7 @@ Grilling mode, inspired by Pocock's `grilling` skill. Opt-in: the user asked to 
 - Keep every `**Estimate (h):**`, `**Actual (h):**` and `**Tracker:**` line.
 - Never renumber existing slices: a split S3 becomes S3a, S3b; a new slice takes the next free number; update `Blocked by` edges accordingly.
 - Do not touch done slices (`**Status:** done` or an `**Actual (h):**` line).
+- Add a missing `**In brief:**` line to each open slice that lacks one.
 - A changed slice that had an Estimate gets that line marked `(stale: re-run estimate)`. Suggest running `estimate` at the end.
 - Update the glossary and ADRs per `references/domain-docs.md`. Superseding an ADR needs the user's ok, already obtained in the rounds.
 - If slices were published to a tracker, ask before updating or creating work items / issues (same rule as step 7).
@@ -221,3 +224,5 @@ Grilling mode, inspired by Pocock's `grilling` skill. Opt-in: the user asked to 
 - You started writing code that is not a prototype.
 - An ADR records something easy to reverse, or a decision with no real alternative.
 - `GLOSSARY.md` contains implementation details, or a slice uses an `_Avoid_` term.
+- A slice has no `**In brief:**` line, or it uses an acronym or domain term without explaining it.
+- The product uses AI and `scope.md` does not say where, for what, and who stays in control.

@@ -12,6 +12,9 @@ Contents:
 
 **Status:** scoped <date> · **Implementer:** agent alone | pair | team | mixed · **Tracker:** none | github:<owner/repo> | ado:<org/project>
 
+## Product in brief
+<5–8 bullets, plain language, no unexplained acronyms: one macro feature each, who uses it and what it does for them. Each bullet names the slices that build it (S1, S4).>
+
 ## Riskiest assumption
 <assumption>. The walking skeleton goes through it. Prototype: none | done – <question> → <answer> (<spike/branch or artifact link>) | skipped (<why>).
 
@@ -28,11 +31,15 @@ Contents:
 ## Constraints
 - Stack / integrations / data / deadline / conventions, only the ones that bind.
 
+## Where AI is used  *(only when the product uses AI)*
+| Feature | What the AI does | What it does not do | Who stays in control | Slices |
+|---|---|---|---|---|
+
 ## Open risks
 - <risk> – carried into slice <N>
 ```
 
-Only these sections: they are what implement (non-goals) and estimate (implementer, riskiest assumption, prototype status, open risks) read, plus the success signal, which decides what happens after the last slice ships.
+Only these sections: they are what implement (non-goals) and estimate (implementer, riskiest assumption, prototype status, open risks) read, plus the success signal, which decides what happens after the last slice ships. Product in brief and Where AI is used are read by estimate's reader summary and by anyone new to the project.
 
 ## backlog.md
 
@@ -46,6 +53,7 @@ Order is dependency order. A slice with no "Blocked by" can start in parallel.
 ---
 
 ## S1 · <Title – verb phrase, what the user can do after this>
+**In brief:** <1–2 sentences for someone who never read the requirements: who does what, what changes for them; spell out every acronym and domain term (e.g. EUDR = EU deforestation regulation).>
 **Why:** proves <riskiest assumption> end-to-end / unlocks <value>
 **Size:** S | M
 **Blocked by:** –
@@ -84,6 +92,7 @@ Riskiest assumption from the interview: *the docs are good enough that a draft i
 
 ```markdown
 ## S1 · A support message produces a visible draft reply from the docs
+**In brief:** When a customer question arrives in the support channel, the bot writes a suggested answer from our help docs and posts it for a support engineer to review. Nothing is sent to the customer.
 **Why:** proves the core assumption (docs → useful draft) on a real message, through every layer
 **Size:** M
 **Blocked by:** –
@@ -104,6 +113,7 @@ Riskiest assumption from the interview: *the docs are good enough that a draft i
 - Done when: tests pass and one real message in #support-test yields a draft a human judges "would have saved me time".
 
 ## S2 · Support engineer can accept or discard a draft with one click
+**In brief:** The support engineer sees the suggested answer and clicks accept or discard, so we can count how often the suggestions are useful.
 **Why:** turns the draft into a measurable signal (accept rate = success metric)
 **Size:** S
 **Blocked by:** S1

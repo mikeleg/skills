@@ -109,17 +109,31 @@ Scope: ./scope.md · Backlog: ./backlog.md · Estimated <date> · Unit: hours of
 
 Also add one line to each estimated slice in `backlog.md`, next to Size: `**Estimate (h):** <min> / <probable> / <max>`. Leave done slices as they are (they have their Actual) and add nothing to L slices.
 
+### Reader summary (ask first)
+
+Offer to also write `summary.md` next to `estimate.md`, for a reader who knows nothing about the project (PM, customer). Ask which language to write it in; default to the user's chat language. Fixed order, descriptions before numbers, so the reader understands the product before the tables:
+
+1. **What the product does**: the macro features from scope.md "Product in brief", in plain language.
+2. **Where AI is used**: from scope.md "Where AI is used": feature, what the AI does, what it does not do, who stays in control; and which cost lines it drives. Omit when the product uses no AI.
+3. **Key numbers**: probable and prudent totals, and what the unit means (agentic hours, not human days).
+4. **Slices table**: columns ID, What it does (from the slice's `In brief`), Size, Blocked by, Min / Probable / Max, Risk. No compressed title alone.
+5. **Open risks** in plain words: what is unknown, who must unblock it, effect on the estimate.
+6. **Assumptions and exclusions**.
+7. **Glossary**: every acronym and domain term used in the summary, one line each.
+
+If slices lack `In brief`, or scope.md lacks "Product in brief", stop and tell the user to add them via `shape-it` Refine first (or offer to draft them for the user's ok). Do not invent descriptions from titles silently.
+
 Chat summary, short. When there are L slices, open with the warning: the totals exclude them, they are not the full scope and must not go in a customer quote until the slices are split via `shape-it` and re-estimated; name the slices. Then: totals (done, remaining and full scope when something is done; otherwise probable and prudent), the slices that carry the most uncertainty, the calibration finding if any.
 
-## 7. Tracker (ask first)
+## 7. Tracker
 
 - **Azure DevOps**: when the slices are work items, offer to write the probable value of each remaining slice to `Microsoft.VSTS.Scheduling.OriginalEstimate`. Ask before writing to the board, then, following `shape-it`'s `references/azure-devops.md` (same `az` setup, org and project):
   `az boards work-item update --id <id> --fields "Microsoft.VSTS.Scheduling.OriginalEstimate=<probable>" --org <org>`
   If the work item type does not accept the field, report it once and skip; do not create Tasks to hold it.
-- **GitHub**: when the slices are issues, offer to label each remaining slice's issue with its probable value, `estimate:<probable>h` (e.g. `estimate:5h`). Ask before writing, then, following `shape-it`'s `references/github.md` (same `gh` setup):
+- **GitHub**: when the slices are issues, label each remaining slice's issue with its probable value, `estimate:<probable>h` (e.g. `estimate:5h`), right away, without asking: the label only mirrors `estimate.md`. Follow `shape-it`'s `references/github.md` (same `gh` setup):
   `gh label create "estimate:<probable>h" --color BFD4F2 --description "Agentic hours, probable" --force`
   `gh issue edit <n> --add-label "estimate:<probable>h"`
-  One estimate label per issue: if it already has an `estimate:` label with another value, remove it in the same command (`--remove-label "estimate:<old>h"`). L slices and done slices get none.
+  One estimate label per issue: if it already has an `estimate:` label with another value, remove it in the same command (`--remove-label "estimate:<old>h"`). L slices and done slices get none. List the labels applied in the chat summary.
 
 Do not change anything else on the work items or issues.
 
@@ -131,4 +145,7 @@ Do not change anything else on the work items or issues.
 - The numbers are human days or weeks, or include meetings and emails.
 - You added a flat percentage buffer instead of widening the max of the risky slices.
 - The reference table is presented as measured fact, not as an uncalibrated default.
-- You wrote to the board without asking.
+- You wrote to the Azure DevOps board without asking, or asked before labelling the GitHub issues instead of doing it.
+- A reader summary opens with tables before saying what the product does.
+- A row of the reader summary cannot be understood without opening the backlog, or uses an unexplained acronym.
+- The product uses AI and the reader summary does not say where and for what.
