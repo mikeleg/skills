@@ -88,7 +88,7 @@ Agents started inside `app/` must be able to read `reference/`: add `"additional
 
 - `git init -b main` in `app/`.
 - No PRs: the flow is dedicated branch → diff review (`git diff main...<branch>`) → `git merge --no-ff` on explicit request.
-- The factory can't run without a GitHub or Azure DevOps remote.
+- The factory runs locally too: slice branches, local review, merge into `main` when the checkout is clean.
 - Note in `app/CLAUDE.md` how to add a remote later without changing habits.
 
 In every case: a `.gitignore` for build output, dependencies, local device/IDE files and local-only documents.
@@ -150,7 +150,7 @@ The workspace is only useful if the agent has the skills that work in it. Check 
 | `shape-it` | `mikeleg-skills` plugin (marketplace `mikeleg/skills`) | idea → scope → backlog of slices |
 | `estimate` | `mikeleg-skills` plugin | backlog → agentic hours (min / probable / max per slice) |
 | `implement` | `mikeleg-skills` plugin | slice → tested, reviewed commit |
-| `factory` | `mikeleg-skills` plugin | ready slices → PRs with review, one at a time; needs a GitHub or Azure DevOps remote |
+| `factory` | `mikeleg-skills` plugin | ready slices (from GitHub issues, Azure DevOps work items or `backlog.md`) → implemented, reviewed, fixed and merged, one at a time |
 | `tdd` | `mikeleg-skills` plugin | red → green → refactor, features or bugs; used by `implement` |
 | `kets-review` | `mikeleg-skills` plugin | design review of a change; used by `implement` |
 | `/simplify`, `/code-review` | bundled with Claude Code | used by `implement` |

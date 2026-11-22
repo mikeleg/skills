@@ -1,6 +1,6 @@
 ---
 name: produci
-description: Kowalski, produci! Runs a feature's ready slices through the line - worktree, implement, PR and a fresh review with comments on the PR - using the factory skill. Use ONLY when the user calls Kowalski by name to run the backlog, e.g. "/kowalski:produci checkout", "kowalski, produci il backlog".
+description: Kowalski, produci! Runs a feature's ready slices through the line - worktree, implement, PR (or local branch), review, fixes and merge - using the factory skill. Use ONLY when the user calls Kowalski by name to run the backlog, e.g. "/kowalski:produci checkout", "kowalski, produci il backlog".
 argument-hint: "[feature folder under docs/backlog]"
 ---
 

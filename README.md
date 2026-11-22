@@ -66,7 +66,7 @@ workspace-setup  →  shape-it  →  (estimate)  →  implement  →  (bug?) tdd
 5. `tdd` builds a feature or fixes a bug test-first, red → green → refactor.
 6. `kets-review` reviews a change for the design regressions it introduces; `implement` runs it at its review step. `codebase-design` is the shared vocabulary of `tdd`, `implement` and `kets-review`; `brand-voice` is the shared writing voice of the skills that write for a person.
 7. `analyze` reads a ticket or bug report and finds where the problem is, before `tdd` or `implement` fix it.
-8. `factory` runs the ready slices of a backlog through the line: a worktree per slice, `implement`, a PR and a review by a fresh agent with comments on the PR. You approve the backlog before and merge the PRs after.
+8. `factory` runs the ready slices of a backlog through the line: a worktree per slice, `implement`, a PR (a local branch when there is no remote), a review by a fresh agent, fixes and a re-review, then the merge. You approve the backlog before; you hear back only for questions, PRs that couldn't be merged and findings left open. The flow and its subagents are mapped in [docs/factory-flow.md](docs/factory-flow.md).
 
 Each skill also works on its own: `implement` accepts any ticket or spec, `shape-it` works in a chat without a codebase.
 
@@ -83,7 +83,7 @@ Each skill also works on its own: `implement` accepts any ticket or spec, `shape
 | `tdd` | Builds a feature or fixes a bug test-first in the red → green → refactor loop: tests at agreed seams, one vertical slice at a time, refactor only on green. Adapted from Matt Pocock's `tdd` skill (MIT). | None. |
 | `codebase-design` | Shared vocabulary for designing deep modules (module, interface, seam, adapter, depth), where a vertical slice is a module, plus clean code rules for the code inside a module. Used by `tdd` and `implement`. Adapted from Matt Pocock's `codebase-design` skill (MIT). | None. |
 | `kets-review` | Reviews a change (diff, branch, PR or path), or on request the whole project's most-changed files, for the design regressions it introduces: spaghetti code and related smells, logic in the wrong place, duplicates of existing helpers, weaker types, pass-through wrappers, contradictions with the project's ADRs (`docs/adr/`) and glossary. Judges the change against the project's own architecture, so it works on any stack and on old codebases; lists at most 3 improvement opportunities in the touched code without applying them. With `--comment` it posts the report on the PR (GitHub or Azure DevOps). Complements `/code-review`. Used by `implement`. | None. Optional: `gh` or `az` to review a PR and comment on it. |
-| `factory` | Runs a feature's shaped backlog through the line: picks the ready slices (not done, blockers merged, seams present) and, one at a time, creates a git worktree and branch, runs `implement` in a subagent, opens the PR and has a fresh agent review it with `kets-review --comment` and `/code-review`, with at most one fix round. Questions a slice raises come back to you; the merge stays with you. | Claude Code, `git`, and `gh` (GitHub) or `az` with the azure-devops extension (Azure DevOps). |
+| `factory` | Runs a feature's shaped backlog through the line: picks the ready slices (not done, blockers merged, seams present) from GitHub issues, Azure DevOps work items or `backlog.md` and, one at a time, creates a git worktree and branch, runs `implement` in a subagent, opens the PR (a local branch when there is no remote), has a fresh agent review it with `kets-review` and `/code-review` and check that every acceptance criterion has a test, fixes and re-reviews (at most 2 fix rounds), and merges it when clean. Questions a slice raises, PRs that couldn't be merged and findings left open come back to you. | Claude Code and `git`. `gh` (GitHub) or `az` with the azure-devops extension (Azure DevOps) only for projects with that remote; a local-only project needs just `git`. |
 | `analyze` | Analyzes a ticket, issue or bug report (Azure DevOps, GitHub, Jira or pasted text): cross-checks docs/wiki, code, git history and the database (read-only) to find where the problem is and propose the minimal fix. The answer is short and written for a person. | None to analyze pasted text. To read tickets: Azure CLI with the `azure-devops` extension, `gh`, or a connector for other trackers. |
 
 ### Work
@@ -145,6 +145,8 @@ The pane's labels are in Italian.
 ```
 .claude-plugin/
   marketplace.json     # the mikeleg marketplace: defines mikeleg-skills and kowalski, lists each mod
+docs/
+  factory-flow.md      # map of the factory flow and its subagents
 skills/
   development/         # workspace-setup, shape-it, estimate, implement, tdd, codebase-design, kets-review, factory, analyze
   work/                # log-task-hours, reply-draft
