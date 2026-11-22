@@ -17,6 +17,7 @@ flowchart TD
         review -- "not clean or comment open (max 3 rounds)" --> fix["Fix, reply to and resolve every comment<br/>+ missing tests, subagent x1 per round"]
         fix --> review
         review -- "clean, every comment resolved" --> merge["Automatic merge"]
+        merge -- "refactors left" --> refac["Project backlog<br/>label / tag refactor"]
         review -- "still not clean after round 3" --> open["PR / branch left open"]
         merge --> clean["Cleanup<br/>worktree, local + remote branch, fetch --prune"]
         clean -- "recompute states:<br/>unblocked slices run now" --> ready
@@ -37,6 +38,8 @@ The first of these that answers: the `Provider:` line in `CLAUDE.md`, the `**Tra
 | Local | `backlog.md` (also the fallback for an unpublished feature) | `**Status:** done` | `git merge --no-ff`, only if the main checkout is on the default branch and clean |
 
 A refused merge (branch protection, policies, conflicts) is never forced: the PR stays open and the report says why.
+
+Refactoring opportunities a slice leaves (kets-review, effort medium or large, not applied by implement) go to the project backlog after the merge, not to the epic: one issue labeled `refactor` on GitHub, one work item tagged `refactor` on Azure DevOps, one line in `docs/backlog/refactoring.md` locally (committed before the merge). Duplicates get an "Also seen in" note. Slices that were not merged file nothing; their opportunities stay in the final report.
 
 ## Subagents: how many and where
 
@@ -60,4 +63,4 @@ The session where you run `/kowalski:produci` is the orchestrator: it picks the 
 
 ## What comes back to you
 
-Only the gate before the run is yours. After it you get the final report: merged slices, PRs left open and why, findings still open, `STOP` questions with their worktree, skipped slices. Worktrees and branches stay only when they hold unmerged work.
+Only the gate before the run is yours. After it you get the final report: merged slices, refactoring items filed, PRs left open and why, findings still open, `STOP` questions with their worktree, skipped slices. Worktrees and branches stay only when they hold unmerged work.
