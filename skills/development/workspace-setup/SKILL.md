@@ -119,7 +119,7 @@ There is no separate questions file. Every open point goes in the "To verify" li
 - Real build, test, typecheck and run commands. `implement` and other skills read them from here.
 - Provider and flow: dedicated branch, PR with context / what changes / how to verify, the provider's PR commands.
 - Backlog: `docs/backlog/<feature>/` (scope.md + backlog.md, written by `shape-it`). Run the workflow skills from a session opened in `app/`: they look for `docs/backlog/` and the git remote there; the workspace root is for browsing and `.vscode`.
-- Workflow: `shape-it` → `estimate` (optional) → `implement` or `factory` (with `/simplify`, `/code-review`, `kets-review`); `tdd` for test-first work (features or bugs). They come from the `mikeleg-skills` plugin (marketplace `mikeleg/skills`).
+- Workflow: `shape-it` → `estimate` (optional) → `implement` (with `/simplify`) or `factory` (which also reviews with `/code-review` and `kets-review`); `tdd` for test-first work (features or bugs). They come from the `mikeleg-skills` plugin (marketplace `mikeleg/skills`).
 - Security: never print tokens or put them in files; confirm before push, merge, sending, deleting.
 - The 3-line preamble ritual (goal, source of truth, definition of done) before non-trivial work, and the rule "if sources disagree, surface it and ask".
 - Read order: `CLAUDE.md` → the glossary (`GLOSSARY.md`, or the right one via `GLOSSARY-MAP.md`) and the ADR titles in `docs/adr/` → code.
@@ -149,11 +149,11 @@ The workspace is only useful if the agent has the skills that work in it. Check 
 |---|---|---|
 | `shape-it` | `mikeleg-skills` plugin (marketplace `mikeleg/skills`) | idea → scope → backlog of slices |
 | `estimate` | `mikeleg-skills` plugin | backlog → agentic hours (min / probable / max per slice) |
-| `implement` | `mikeleg-skills` plugin | slice → tested, reviewed commit |
+| `implement` | `mikeleg-skills` plugin | slice → tested commit |
 | `factory` | `mikeleg-skills` plugin | ready slices (from GitHub issues, Azure DevOps work items or `backlog.md`) → implemented, reviewed, fixed and merged, one at a time |
 | `tdd` | `mikeleg-skills` plugin | red → green → refactor, features or bugs; used by `implement` |
-| `kets-review` | `mikeleg-skills` plugin | design review of a change; used by `implement` |
-| `/simplify`, `/code-review` | bundled with Claude Code | used by `implement` |
+| `kets-review` | `mikeleg-skills` plugin | design review of a change; used by `factory` |
+| `/simplify`, `/code-review` | bundled with Claude Code | `/simplify` used by `implement`, `/code-review` by `factory` |
 
 **Check.** A skill counts as available if it appears in this session's list of available skills, or if its kowalski wrapper does (e.g. `/kowalski:produci` for `factory`). If one is missing, `claude plugin list --json` tells whether `mikeleg-skills@mikeleg` is installed but disabled.
 

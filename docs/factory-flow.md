@@ -40,7 +40,7 @@ The first of these that answers: the `Provider:` line in `CLAUDE.md`, the `**Tra
 
 A refused merge (branch protection, policies, conflicts) is never forced: the PR stays open and the report says why.
 
-Refactoring opportunities a slice leaves (kets-review, effort medium or large, not applied by implement) go to the project backlog after the merge, not to the epic: one issue labeled `refactor` on GitHub, one work item tagged `refactor` on Azure DevOps, one line in `docs/backlog/refactoring.md` locally (committed before the merge). Duplicates get an "Also seen in" note. Slices that were not merged file nothing; their opportunities stay in the final report.
+Refactoring opportunities a slice leaves (kets-review, not applied by a fix round) go to the project backlog after the merge, not to the epic: one issue labeled `refactor` on GitHub, one work item tagged `refactor` on Azure DevOps, one line in `docs/backlog/refactoring.md` locally (committed before the merge). Duplicates get an "Also seen in" note. Slices that were not merged file nothing; their opportunities stay in the final report.
 
 The items are paid, not only filed. Before each slice the factory picks the open items (effort small or medium) on the files the slice touches, at most two, plus those the slice names with `First: #n`; implement pays them as their own commits before the slice, with no behaviour change, and the PR closes them. When the open items outnumber the slices not done, the run says so and offers a refactoring round first (shape-it refine turns them into refactor slices). Opportunities that are a pattern come back in the final report as rules to add to `docs/conventions.md`, which shape-it seeds before the first slice and implement and kets-review read.
 
@@ -51,10 +51,10 @@ The session where you run `/kowalski:produci` is the orchestrator: it picks the 
 | Step | Who does it | Subagents per slice |
 | --- | --- | --- |
 | States, worktree, spec file from the tracker | main session | 0 |
-| Implement: tdd, spec check, `/simplify`, `/code-review`, `kets-review`, commit, screenshots when the UI changes | implement subagent | 1 |
+| Implement: tdd, spec check, `/simplify`, commit, screenshots when the UI changes (no review: 2d is the only one) | implement subagent | 1 |
 | PR (short body: summary, criterion → test, tests changed, screenshots) or local branch | main session | 0 |
 | Review: kets-review, code-review, each criterion → its test, no lost test cases, full suite | fresh subagent that never saw the code | 1 |
-| Fix: every finding, code aligned with the ADRs, missing tests written, every review comment replied to and resolved | fix subagent, one per round | 0–3 |
+| Fix: every finding, code aligned with the ADRs, missing tests written, every review comment replied to and resolved, small kets-review opportunities applied | fix subagent, one per round | 0–3 |
 | New review after each fix | a new subagent each time | 0–3 |
 | Merge and cleanup | main session | 0 |
 | **Total** | | **2–8** |
@@ -62,7 +62,7 @@ The session where you run `/kowalski:produci` is the orchestrator: it picks the 
 - Clean at the first review: 2 subagents. Three fix rounds: 8. A slice that stops: 1.
 - Example: 5 ready slices use 10 to 40 subagents, in sequence.
 - The skill doesn't pin a model: subagents use the session's model.
-- Inside implement, the spec check and `/code-review` start agents of their own where the environment allows it. A subagent usually can't start others; then it does those steps itself and says so in its report.
+- Inside implement, the spec check starts an agent of its own where the environment allows it. A subagent usually can't start others; then it does the check itself and says so in its report.
 
 ## What comes back to you
 

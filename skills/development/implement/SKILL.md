@@ -1,6 +1,6 @@
 ---
 name: implement
-description: Implement a slice, spec or ticket from its acceptance criteria - agree the seams, build it test-first by running the tdd loop on each criterion - then check the result against the spec, simplify it, review it with /code-review and kets-review, guard the quality floor and commit. Use when the user says "implement S1", "build this slice/ticket/story/spec", or hands over a backlog item from shape-it to be coded.
+description: Implement a slice, spec or ticket from its acceptance criteria - agree the seams, build it test-first by running the tdd loop on each criterion - then check the result against the spec, simplify it, guard the quality floor and commit. It doesn't review: the review is a separate step (factory's fresh review, or /code-review and kets-review run by hand). Use when the user says "implement S1", "build this slice/ticket/story/spec", or hands over a backlog item from shape-it to be coded.
 ---
 
 # Implement
@@ -14,7 +14,7 @@ Turn one unit of agreed work (a slice from `docs/backlog/<feature>/backlog.md`, 
 - Note how the code is organized: by feature (a new repo counts as this) or by technical layer (Controllers/Services/Repositories). The folder rule in tdd depends on it; the final report says which structure the work followed.
 - Read `${CLAUDE_SKILL_DIR}/../tdd/SKILL.md`, with the `tests.md` and `mocking.md` next to it: steps 1 and 2 follow it. If that file isn't there, use the `tdd` skill if this session lists it; otherwise work red → green → refactor without it and say so in the final report.
 - Read `GLOSSARY.md` (the right one via `GLOSSARY-MAP.md` if the root has it) and the ADRs in `docs/adr/`: the ones the slice lists under `**ADRs:**`, plus any whose title touches the area of the work. Skip silently if they don't exist. Only accepted ADRs count: no `Status`, or `accepted`; ignore `proposed`, `deprecated` and `superseded`. If the slice, as written, contradicts an accepted ADR, stop before writing code: quote the ADR and the slice line, and ask the user whether to change the slice or supersede the ADR. Never edit an ADR to say the opposite.
-- After the user's choice on an ADR conflict (here or in steps 2, 4 and 6): if they supersede, write the new ADR and mark the old one `Status: superseded by ADR-NNNN`, following `${CLAUDE_SKILL_DIR}/../shape-it/references/domain-docs.md` (format and numbering; if that file isn't there, use: next number in `docs/adr/`, title + 1-3 sentences); if they change the slice, update the slice text in `backlog.md` first, so the spec check reads the new version.
+- After the user's choice on an ADR conflict (here or in steps 2 and 4): if they supersede, write the new ADR and mark the old one `Status: superseded by ADR-NNNN`, following `${CLAUDE_SKILL_DIR}/../shape-it/references/domain-docs.md` (format and numbering; if that file isn't there, use: next number in `docs/adr/`, title + 1-3 sentences); if they change the slice, update the slice text in `backlog.md` first, so the spec check reads the new version.
 - Read `docs/conventions.md` if it exists: its rules are part of the spec. Where the slice says `Build: <pattern>`, build it as the shared one at that path; where it says `Reuse:`, or a rule covers what you are about to write, use the existing piece instead of writing another. If the slice can't follow a rule, say which and why in the final report; never change a rule yourself.
 - If the slice builds or changes a screen that the reference mock has (`docs/mock/`, or the client's mocks in `../reference/mock/current/`), the screen follows it: layout, components, states and wording. Never copy the mock's code: build the screen with the project's components, as `docs/conventions.md` says. A difference from the mock goes in the final report with its reason.
 - If the slice's Implementation notes start with `First: #<n>` (an open refactoring item), pay it before step 1, as its own commit: no behaviour change, the full suite green before and after, no existing test changed for it. If it turns out large (an interface used elsewhere changes, or it needs a decision), drop it, revert it, and say why in the final report.
@@ -26,7 +26,7 @@ Turn one unit of agreed work (a slice from `docs/backlog/<feature>/backlog.md`, 
 Tests go only at agreed seams; tdd says what a seam is and how to propose one.
 
 - If the slice lists **Seams** (shape-it writes them), they are already agreed: map each acceptance criterion to a seam and go.
-- If it doesn't, propose them in one message as tdd says, a seam and a test for each acceptance criterion. Wait for the user's ok. This is the planned stop; the others are a dirty working tree (step 0), an ADR conflict (steps 0, 2, 4 and 6) and a slice that duplicates another (see the Duplication rule in codebase-design).
+- If it doesn't, propose them in one message as tdd says, a seam and a test for each acceptance criterion. Wait for the user's ok. This is the planned stop; the others are a dirty working tree (step 0), an ADR conflict (steps 0, 2 and 4) and a slice that duplicates another (see the Duplication rule in codebase-design).
 
 ## 2. Build it with tdd, one criterion at a time
 
@@ -67,11 +67,7 @@ Fix (a) and (c). Remove (b) and list what you removed in the final report, so th
 
 The loop already refactored each cycle; this is the refactor pass over the whole change. Use /simplify if available; otherwise refactor it yourself as the Refactoring section of `${CLAUDE_SKILL_DIR}/../codebase-design/SKILL.md` says, mainly remove dead code, collapse a pass-through and reuse the existing helper. Either way, go through every comment the change adds and apply the Comments rule of `codebase-design`: rewrite the code so the comment is not needed, and keep it only as a one-line why. Then run typechecking and the full test suite.
 
-## 6. Review
-
-Use `/code-review low` to review the work, then read `${CLAUDE_SKILL_DIR}/../kets-review/SKILL.md` and follow it on the same change for the design regressions it introduces (if that file isn't there, skip it and say so in the final report). Fix the issues they raise that are real, except a kets-review P1 "Against a decision" finding (ADR or glossary conflict): it follows the step 4 (d) rule (ADR conflict → stop and ask; `_Avoid_` term in a name the change adds → rename), never fixed silently. Ignore the ones that aren't, and say why. Apply the opportunities kets-review lists with effort small, as refactors; copy the medium and large ones into the final report. Re-run the full test suite after any fix.
-
-## 7. Guard the floor
+## 6. Guard the floor
 
 Agents reach green by the cheapest road. Before committing, stage the work (`git add` the files of this change) and scan what it adds and removes:
 
@@ -89,9 +85,9 @@ git diff --cached <base> --name-only | grep -iE '(eslint|biome|tsconfig|jest|vit
 
 Adapt the patterns to the stack if it uses others. Every hit is either removed or justified: a real reason, written in the final report and in the commit message. "To make the test pass" is not a reason. Tightening the bar needs no justification; loosening it does.
 
-## 8. Commit
+## 7. Commit
 
-Commit to the current branch. The message says what the change does and why; it also names any floor exception from step 7. A decision taken during the work that passes the three-criteria test in `${CLAUDE_SKILL_DIR}/../shape-it/references/domain-docs.md` gets its ADR in `docs/adr/` in the same commit. When the work is a slice from a shape-it `backlog.md`, add `**Status:** done` to that slice (next to Size) and include that change in the same commit.
+Commit to the current branch. The message says what the change does and why; it also names any floor exception from step 6. A decision taken during the work that passes the three-criteria test in `${CLAUDE_SKILL_DIR}/../shape-it/references/domain-docs.md` gets its ADR in `docs/adr/` in the same commit. When the work is a slice from a shape-it `backlog.md`, add `**Status:** done` to that slice (next to Size) and include that change in the same commit.
 
 ## Final report
 
@@ -103,5 +99,5 @@ Short, evidence over adjectives:
 - Mutation result from step 3.
 - Spec check findings, what you did with them, and anything removed as unrequested.
 - ADR and glossary conflicts found, what the user chose (supersede or change the slice), and what was written (new ADR number, or the slice updated in `backlog.md`).
-- /code-review and kets-review findings fixed and ignored (with why), the kets-review opportunities applied, and the ones left.
+- Not reviewed yet: one line saying to run `/code-review` and `kets-review` on the commit (factory does it in its review).
 - Floor hits, if any, and their justification.
