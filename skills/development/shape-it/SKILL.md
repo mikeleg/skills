@@ -15,7 +15,7 @@ Speak the user's language in conversation. Write the artifacts (scope.md, backlo
 1. **Orient** – detect environment, read what already exists. Never ask what you can find.
 2. **80/20 interview** – one batch of the few questions that change the backlog most, each with a proposed default.
 3. **Scope** – walking skeleton + riskiest assumption → in / out / non-goals.
-4. **Prototype gate** – decide whether one throwaway prototype should answer a question before slicing.
+4. **Prototype gate** – decide whether one throwaway prototype should answer a question before slicing; on a greenfield product with a UI, propose the reference mock of its screens.
 5. **Slice** – vertical tracer-bullet slices with acceptance criteria and blocking edges, checked against the baseline checklist, plus the code conventions the slices will share.
 6. **Write** – `scope.md` + `backlog.md` in the repo (or workspace), `docs/conventions.md`, plus glossary terms and ADRs when the scoping settled any.
 7. **Publish (optional)** – GitHub Issues or Azure DevOps work items, only after confirmation.
@@ -99,6 +99,19 @@ If they say yes:
 - **Throw it away.** The spike branch is never merged. Leave it unpushed or delete it after recording; if a slice reuses an idea, it is rewritten inside the slice with tests. Say this to the user in the hand off.
 
 Do not prototype out of habit. If no question survived the interview and the riskiest assumption is already validated (or untestable within the timebox), skip this step and say so in one line.
+
+### Reference mock (greenfield with a UI)
+
+A different artifact from the prototype: it answers no single question, it is kept for the whole round, and it is a visual reference, never a code reference. The code reference is the walking skeleton plus `docs/conventions.md`; a second codebase to copy from would be a second source of truth.
+
+Propose it, in the same message as the prototype gate, when the product is new and has a UI, and the workspace has no mocks from the client in `../reference/mock/current/` (if it has, they are the reference: derive the rules below from them and build nothing). Skip it for an API-only product or a feature in an existing UI that already sets the patterns, and say so in one line.
+
+- **What**: static, clickable HTML of the screens the scope needs, with fake data, built with the UI kit chosen for the product so it looks like the result (use `frontend-design` if available). Every screen shows the states the baseline checklist asks for: an empty list, a list longer than one page, a validation error under its field, a failed save, a destructive action with its confirmation. Labels use the glossary terms. No logic, no real API, no tests.
+- **Timebox**: one agent session, like a prototype.
+- **Where**: `docs/mock/` in the repo, an `index.html` linking the screens, versioned with the code.
+- **The user approves it**, as they approve the backlog. Then every choice it fixes becomes a rule in `docs/conventions.md`: the UI kit, the app shell and navigation, the list pattern (pagination, empty state), where form errors go, confirmations and notifications. The UI kit also gets an ADR when it passes the three criteria.
+- **Record** in `scope.md`: `Reference mock: docs/mock/ (approved <date>)`, or `client mocks in ../reference/mock/current/`, or `skipped (<why>)`.
+- **Changing it**: a slice that needs a screen the mock doesn't have, or a different one, changes the mock first, with the user's ok, in the same PR as the slice.
 
 ## 5. Slice into tracer bullets
 
@@ -240,6 +253,7 @@ Grilling mode, inspired by Pocock's `grilling` skill. Opt-in: the user asked to 
 - An open refactoring item touches the files of a slice and the slice doesn't say `First: #n`, and no reason is given.
 - `scope.md` has no non-goals, or an MVP's `scope.md` has no success signal.
 - A prototype was merged, grew tests, or answered more than one question.
+- A greenfield product with a UI was sliced with no reference mock and no reason in `scope.md`, or a slice copied code from the mock.
 - You published to a tracker without being told to.
 - You started writing code that is not a prototype.
 - An ADR records something easy to reverse, or a decision with no real alternative.

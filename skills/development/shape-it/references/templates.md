@@ -18,6 +18,7 @@ Contents:
 
 ## Riskiest assumption
 <assumption>. The walking skeleton goes through it. Prototype: none | done – <question> → <answer> (<spike/branch or artifact link>) | skipped (<why>).
+Reference mock: docs/mock/ (approved <date>) | client mocks in ../reference/mock/current/ | skipped (<why>) | n/a (no UI).
 
 ## Success signal
 <one observable, measurable signal that says the MVP worked, with a threshold, e.g. "≥ 50% of drafts accepted over 2 weeks">. Not met → <what we do: iterate, pivot, stop>.
