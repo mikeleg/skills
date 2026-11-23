@@ -35,6 +35,7 @@ Before judging, read:
 - `CLAUDE.md` / `AGENTS.md`
 - `GLOSSARY.md` (the right one via `GLOSSARY-MAP.md` if the root has it), if present
 - the ADRs in `docs/adr/`, if present: read the titles, open the ones touching the changed area. They are part of the yardstick. Only accepted ADRs count (no `Status`, or `accepted`); ignore `proposed`, `deprecated` and `superseded` ones
+- `docs/conventions.md`, if present: its rules are part of the yardstick. Code the change adds that ignores a rule (writes its own version of a pattern the rule says lives somewhere) is a Copy-paste finding (P1): name the rule and the existing piece
 - the folder structure
 - 2-3 neighbouring files of the same kind as the changed ones
 
@@ -71,6 +72,7 @@ This rule is what makes the review usable on old codebases.
 | P3 | Primitive obsession | Strings/ints for domain concepts, magic numbers and strings, long parameter lists, boolean flag arguments |
 | P3 | Feature envy | A method uses another object's data more than its own |
 | P3 | Dead and "temporary" code | Commented-out code, unreachable branches, TODOs or fixes "for now" |
+| P3 | Comment instead of code | A comment the code could say itself: a name, an extracted function, a type or a named constant would make it unnecessary (rule in `codebase-design` Comments). A one-line why the code can't express is fine |
 
 ## 5. Remedies
 
@@ -94,7 +96,7 @@ Rules:
 - **Effort** is what the fix takes the agent that will make it, not a person's time: **small** = one place in one file, and the existing tests already cover it; **medium** = several files or call sites, or tests to add or change; **large** = changes an interface used elsewhere, crosses modules or layers, or needs a decision from the user first.
 - **Fix first**: 1-3 moves with the most impact for the least work, picked across findings and opportunities. Point to the finding (1, 2...) or opportunity (O1, O2...) by its number instead of repeating it. An "Against a decision" finding, if there is one, is always the first item, whatever its effort.
 - **Findings** (introduced or worsened) are numbered, so the user can say "fix 2". "Against a decision" findings are always listed first, exempt from the effort reordering. Order the others by impact over effort: the priority gives the impact, the effort reorders, so a small P2 comes before a large P1. P1: all of them. P2: at most 5, the smallest effort first. P3: at most 3, only small ones, in the "Minor" line.
-- **Opportunities**: at most 3, numbered O1, O2, O3, pre-existing in the touched code, chosen by payoff over effort. Weigh payoff by how often the file changes: `git log --since="12 months ago" --format= --name-only -- <file> | wc -l`; debt in a file that changes often pays off more. The review only lists them: it never applies them or opens tickets (implement applies the small ones).
+- **Opportunities**: at most 3, numbered O1, O2, O3, pre-existing in the touched code, chosen by payoff over effort. Weigh payoff by how often the file changes: `git log --since="12 months ago" --format= --name-only -- <file> | wc -l`; debt in a file that changes often pays off more. The review only lists them: it never applies them or opens tickets (implement applies the small ones). An opportunity that is already an open refactoring item (GitHub issue labelled `refactor`, Azure DevOps work item tagged `refactor`, a line in `docs/backlog/refactoring.md`) is not listed again: name it in one line, `Already filed: #<n>`, only if the change makes it worse. On a re-review of the same PR, don't repeat an opportunity an earlier kets-review comment there already listed.
 - One sentence per bullet, no paragraphs. A code snippet only when the signal can't be shown otherwise, at most 3 lines.
 - Leave out empty sections and lines ("Minor", "Left out", "Opportunities") instead of writing "none".
 

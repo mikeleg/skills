@@ -15,9 +15,9 @@ Speak the user's language in conversation. Write the artifacts (scope.md, backlo
 1. **Orient** – detect environment, read what already exists. Never ask what you can find.
 2. **80/20 interview** – one batch of the few questions that change the backlog most, each with a proposed default.
 3. **Scope** – walking skeleton + riskiest assumption → in / out / non-goals.
-4. **Prototype gate** – decide whether one throwaway prototype should answer a question before slicing.
-5. **Slice** – vertical tracer-bullet slices with acceptance criteria and blocking edges.
-6. **Write** – `scope.md` + `backlog.md` in the repo (or workspace), plus glossary terms and ADRs when the scoping settled any.
+4. **Prototype gate** – decide whether one throwaway prototype should answer a question before slicing; on a greenfield product with a UI, propose the reference mock of its screens.
+5. **Slice** – vertical tracer-bullet slices with acceptance criteria and blocking edges, checked against the baseline checklist, plus the code conventions the slices will share.
+6. **Write** – `scope.md` + `backlog.md` in the repo (or workspace), `docs/conventions.md`, plus glossary terms and ADRs when the scoping settled any.
 7. **Publish (optional)** – GitHub Issues or Azure DevOps work items, only after confirmation.
 8. **Hand off** – say which slice goes first and that implementation is a separate skill.
 
@@ -32,9 +32,10 @@ If `docs/backlog/<slug>/` already exists and the user wants to refine it, or `es
 Before asking anything, build a "what I already know" picture:
 
 - **Environment**: Is there a repo? (`git rev-parse --is-inside-work-tree`, or a project folder in view). If yes you are in *codebase mode*; if no, *greenfield mode*. The flow is identical, only the depth of context differs.
-- **Codebase mode**: read `README`, `CLAUDE.md`/`AGENTS.md`, `docs/`, the dependency manifest, the top-level folder structure, and any existing `docs/backlog/` or `docs/specs/`. Note the stack, the test setup, the entry points, and conventions. Grep for things the feature will touch. Also read `GLOSSARY.md` / `GLOSSARY-MAP.md` and the titles in `docs/adr/` (open the ADRs the feature touches). Decisions recorded there count as already made: do not re-ask them. Ten minutes here saves five bad questions later. Open points in the "To verify" list of `CLAUDE.md` that touch the feature go into `scope.md` "Open risks".
+- **Codebase mode**: read `README`, `CLAUDE.md`/`AGENTS.md`, `docs/`, the dependency manifest, the top-level folder structure, and any existing `docs/backlog/` or `docs/specs/`. Note the stack, the test setup, the entry points, and conventions. Grep for things the feature will touch. Also read `GLOSSARY.md` / `GLOSSARY-MAP.md` and the titles in `docs/adr/` (open the ADRs the feature touches). Decisions recorded there count as already made: do not re-ask them. Ten minutes here saves five bad questions later. Open points in the "To verify" list of `CLAUDE.md` that touch the feature go into `scope.md` "Open risks". Read `docs/conventions.md` if it exists, and the open refactoring items: GitHub issues labelled `refactor` (`gh issue list --label refactor --state open --json number,title,body`), Azure DevOps work items tagged `refactor`, or the unchecked lines of `docs/backlog/refactoring.md`. Step 5 uses both.
 - **Tracker**: look at `git remote -v`. `github.com` → GitHub; `dev.azure.com` or `visualstudio.com` → Azure DevOps. Check whether `gh` / `az` CLIs are available, or (in Cowork/chat) whether a GitHub or Azure DevOps connector is loaded. Do not publish yet; just know what is possible. If nothing is available, markdown is the only output and that is fine.
 - **Input**: the user's brief, pasted notes, linked docs, previous conversation. Extract every decision already made so you do not re-ask it.
+- **Existing issues or work items are input, not slices.** When the round starts from open issues (follow-ups of an earlier round, bug reports), regroup them: issues on the same flow or the same code become one slice, an issue too big for one implement run becomes two. The number of slices follows the work, never the number of issues; one slice can close several issues (list them all under `**Tracker:**`).
 
 Summarise this in 5–10 lines back to the user *together with* the interview questions (step 2), not as a separate turn.
 
@@ -99,6 +100,19 @@ If they say yes:
 
 Do not prototype out of habit. If no question survived the interview and the riskiest assumption is already validated (or untestable within the timebox), skip this step and say so in one line.
 
+### Reference mock (greenfield with a UI)
+
+A different artifact from the prototype: it answers no single question, it is kept for the whole round, and it is a visual reference, never a code reference. The code reference is the walking skeleton plus `docs/conventions.md`; a second codebase to copy from would be a second source of truth.
+
+Propose it, in the same message as the prototype gate, when the product is new and has a UI, and the workspace has no mocks from the client in `../reference/mock/current/` (if it has, they are the reference: derive the rules below from them and build nothing). Skip it for an API-only product or a feature in an existing UI that already sets the patterns, and say so in one line.
+
+- **What**: static, clickable HTML of the screens the scope needs, with fake data, built with the UI kit chosen for the product so it looks like the result (use `frontend-design` if available). Every screen shows the states the baseline checklist asks for: an empty list, a list longer than one page, a validation error under its field, a failed save, a destructive action with its confirmation. Labels use the glossary terms. No logic, no real API, no tests.
+- **Timebox**: one agent session, like a prototype.
+- **Where**: `docs/mock/` in the repo, an `index.html` linking the screens, versioned with the code.
+- **The user approves it**, as they approve the backlog. Then every choice it fixes becomes a rule in `docs/conventions.md`: the UI kit, the app shell and navigation, the list pattern (pagination, empty state), where form errors go, confirmations and notifications. The UI kit also gets an ADR when it passes the three criteria.
+- **Record** in `scope.md`: `Reference mock: docs/mock/ (approved <date>)`, or `client mocks in ../reference/mock/current/`, or `skipped (<why>)`.
+- **Changing it**: a slice that needs a screen the mock doesn't have, or a different one, changes the mock first, with the user's ok, in the same PR as the slice.
+
 ## 5. Slice into tracer bullets
 
 Each slice is a **vertical, demoable increment**: it goes through all the layers it needs, it produces something the user can see or run, and it leaves the system working. This is Pocock's tracer-bullet idea and it is the part worth keeping.
@@ -125,6 +139,20 @@ You learned this in the interview. Adapt the *body* of each slice, not its shape
 
 Given / When / Then, concrete, verifiable. Two to five per slice. If a criterion contains "works correctly", "is fast", "handles errors", it is not a criterion yet – ask yourself what you would actually check and write that. Include the negative path when it matters (what happens on the invalid input, the timeout, the empty state).
 
+### Baseline checklist
+
+For every area a slice touches, go through `references/baseline-checklist.md`. Each item that applies either becomes an acceptance criterion of the first slice that touches the area, or goes in `scope.md` Out of scope with its reason. Nothing that applies is left unsaid: a missing item is what a review finds after the merge, and it costs a follow-up issue and often a whole extra round.
+
+### Code conventions: the shared shape, decided before the factory
+
+Most rework the reviews find after the merge is a pattern each slice reinvented: the same labelled input copied into six components, the create and edit pages each with their own editor, every endpoint splitting errors its own way, startup configuration growing inline. Deciding it before the first slice costs a line; after it costs a refactoring issue and a fix round on every PR that copies it.
+
+- Look across the slices for what two or more of them will need: a UI pattern (labelled form field, list with pagination, create/edit form, error display), an API pattern (endpoint layout, validation and error shape, auth check), a data pattern (the write sequence, transactions, migrations), the wiring (where startup and configuration code goes), the test pattern (the fixture or factory the tests share).
+- For each, write one rule in `docs/conventions.md` (format in `references/templates.md`): what the pattern is, where it lives, which slice builds it. In the slices, the first one that needs it builds it as the shared one (`Build: <pattern> as the shared one in <path>` in its Implementation notes, and the path in Touch); the others get `Reuse: <pattern> (<path>)`.
+- Codebase mode: start from the existing `docs/conventions.md` and keep its rules; derive the yardstick from 2-3 neighbouring files where it has none. Then the open refactoring items read in Orient: an item whose files a slice of this round touches becomes the first step of that slice (`First: #<n>` in its Implementation notes; effort small or medium only), or, when it is large or touches no slice, a refactor slice of its own if it blocks the round, otherwise it stays in the project backlog. An item that names a pattern (duplication, a missing shared component) also becomes a rule, so the next slice doesn't recreate it.
+- Only patterns at least two slices will use, at most about ten rules, one bullet each. It is not a design document. Human-team profile: optional.
+- Show the rules in chat with the backlog (step 6). They are part of what the user approves before the factory runs.
+
 Slice titles, acceptance criteria and seams use glossary terms, never `_Avoid_` terms. When a slice is shaped by an ADR, add a line `**ADRs:** 0003, 0007` to it, so `implement` knows which ADRs to check.
 
 Each slice also gets a one-line **Why** (what it proves or what value it unlocks) and a **Size**, measured as the work for the coding agent that will implement it, not human time: S = one implement run through one seam, a few files; M = one implement run through several seams or layers; L = doesn't fit one implement run (too much to hold at once, or decisions still open along the way) – split it.
@@ -142,6 +170,7 @@ Location:
 `backlog.md` starts with a short header (link to scope, implementer profile, tracker status) and then the slices in dependency order. Keep a `## Later` section at the bottom for things that came up and were cut, one line each, so they are not lost and not argued about again.
 
 Besides `scope.md` and `backlog.md`:
+- Write the rules from step 5 to `docs/conventions.md` (create it, or add to it and keep the existing rules). If `CLAUDE.md` exists and doesn't mention the file, add it to its read order.
 - Update `GLOSSARY.md` with the terms resolved during scoping.
 - Write an ADR for each decision that passes the three-criteria test. Often zero or one per feature; never pad.
 
@@ -149,7 +178,7 @@ Locations, formats and rules are in `references/domain-docs.md`. Read it before 
 
 Plain-language layer: every slice gets an `**In brief:**` line, and `scope.md` gets a "Product in brief" section (plus "Where AI is used" when the product uses AI or calls external services that decide something). `estimate`'s reader summary and anyone new to the project read these instead of the acceptance criteria. Test: someone who never read the requirements understands what the slice does from that line alone.
 
-Show the user the backlog in chat as well: slice titles, sizes, blocking edges. Not the full bodies; they can open the file. In the same message list the glossary terms added and the ADR titles.
+Show the user the backlog in chat as well: slice titles, sizes, blocking edges. Not the full bodies; they can open the file. In the same message list the conventions rules, the refactoring items folded into slices (`First: #n`), the glossary terms added and the ADR titles.
 
 ## 7. Publish (ask first)
 
@@ -180,7 +209,7 @@ Grilling mode, inspired by Pocock's `grilling` skill. Opt-in: the user asked to 
 
 **When**: a backlog for this feature already exists and the user asks to refine, grill or sharpen it, or `estimate` sent L slices back to be split.
 
-**1. Read and build the tree.** Read `scope.md`, `backlog.md`, `GLOSSARY.md` (the right one via `GLOSSARY-MAP.md` if the root has it) and the referenced ADRs. Build a design tree from them: root = riskiest assumption; then in / out / non-goals; then the slice set, order and `Blocked by` edges; then each slice's acceptance criteria and seams. Every decision branches into the ones that depend on it. When you came here to split L slices sent back by `estimate`, the tree is only those slices and the decisions they depend on; don't re-grill the rest of the backlog.
+**1. Read and build the tree.** Read `scope.md`, `backlog.md`, `GLOSSARY.md` (the right one via `GLOSSARY-MAP.md` if the root has it) and the referenced ADRs. Build a design tree from them: root = riskiest assumption; then in / out / non-goals; then the slice set, order and `Blocked by` edges; then each slice's acceptance criteria and seams. Every decision branches into the ones that depend on it. When you came here to split L slices sent back by `estimate`, the tree is only those slices and the decisions they depend on; don't re-grill the rest of the backlog. Also read `docs/conventions.md` and the open refactoring items (as in Orient): the baseline checklist, the conventions rules and the refactoring items to fold in (step 5) are branches of the tree like the others. When `factory` sent you here because the refactoring items outnumber the open slices, the round is a refactoring round: group the items by files and move into refactor slices (no new behaviour, acceptance criteria = the existing tests stay green plus what the item says becomes true, e.g. "the Fields editor lives in one component used by both pages"), and turn each pattern into a rule.
 
 **2. Work in rounds.** The frontier is every decision whose prerequisites are settled. Ask the whole frontier in one round, numbered, each with your recommended answer, worded so "yes" accepts it. A question that depends on another one still open in the same round goes to a later round. Format:
 
@@ -218,8 +247,13 @@ Grilling mode, inspired by Pocock's `grilling` skill. Opt-in: the user asked to 
 - Slices are horizontal (all backend, then all frontend).
 - An acceptance criterion cannot be checked by a script or a human in under a minute.
 - The backlog has more than ~12 slices for an MVP. Cut, or you have two MVPs.
+- Every slice maps one to one onto an existing issue: the issues were copied, not shaped.
+- Two slices will need the same pattern and `docs/conventions.md` has no rule for it.
+- An area the slices touch has a baseline-checklist item that is neither an acceptance criterion nor out of scope.
+- An open refactoring item touches the files of a slice and the slice doesn't say `First: #n`, and no reason is given.
 - `scope.md` has no non-goals, or an MVP's `scope.md` has no success signal.
 - A prototype was merged, grew tests, or answered more than one question.
+- A greenfield product with a UI was sliced with no reference mock and no reason in `scope.md`, or a slice copied code from the mock.
 - You published to a tracker without being told to.
 - You started writing code that is not a prototype.
 - An ADR records something easy to reverse, or a decision with no real alternative.

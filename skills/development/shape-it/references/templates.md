@@ -3,6 +3,7 @@
 Contents:
 - [scope.md](#scopemd)
 - [backlog.md](#backlogmd)
+- [docs/conventions.md](#docsconventionsmd)
 - [Worked example](#worked-example-greenfield-agent-alone-profile)
 
 ## scope.md
@@ -17,6 +18,7 @@ Contents:
 
 ## Riskiest assumption
 <assumption>. The walking skeleton goes through it. Prototype: none | done – <question> → <answer> (<spike/branch or artifact link>) | skipped (<why>).
+Reference mock: docs/mock/ (approved <date>) | client mocks in ../reference/mock/current/ | skipped (<why>) | n/a (no UI).
 
 ## Success signal
 <one observable, measurable signal that says the MVP worked, with a threshold, e.g. "≥ 50% of drafts accepted over 2 weeks">. Not met → <what we do: iterate, pivot, stop>.
@@ -69,6 +71,8 @@ Order is dependency order. A slice with no "Blocked by" can start in parallel.
 - <public interface the tests go through, e.g. `POST /api/x`, `cli run`, `parseInvoice()`> – covers AC1, AC2. Catches <…>; misses <…>.
 
 ### Implementation notes  *(agent / pair profiles; team can skip)*
+- First: #<n> <refactoring item title> *(optional: an open refactoring item on these files, done as its own commit before the slice)*
+- Build: <pattern> as the shared one in <path> · Reuse: <pattern> (<path>) *(per the rules in `docs/conventions.md`)*
 - Touch: <files/modules>. Do not touch: <files/modules>.
 - Interfaces to respect: <…>
 - Tests to add: <test name> covering AC1; <test name> covering AC2.
@@ -82,6 +86,18 @@ Order is dependency order. A slice with no "Blocked by" can start in parallel.
 
 ## Later (cut from this round)
 - <one line each; why it was cut if not obvious>
+```
+
+## docs/conventions.md
+
+```markdown
+# Code conventions
+
+The shared shape of the code: patterns more than one slice uses. Read before writing code (implement) and used as the yardstick (kets-review). One rule per pattern; a rule changes only with the user's ok.
+
+- **<Pattern>**: <the rule, one sentence: what every instance does>. Lives in `<path>`. Since <feature> S<id>.
+- **Labelled form field**: every input of a form goes through `FormField` (label, required mark, control, errors); a page never wires `Label` + control + errors itself. Lives in `admin/src/lib/FormField.svelte`. Since cms-mvp S2.
+- **Startup wiring**: each concern registers itself in an `Add<Concern>` / `Use<Concern>` extension method next to its feature; `Program.cs` only calls them. Since post-mvp S3.
 ```
 
 ## Worked example (greenfield, agent-alone profile)
