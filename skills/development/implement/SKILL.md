@@ -64,7 +64,7 @@ Fix (a) and (c). Remove (b) and list what you removed in the final report, so th
 
 ## 5. Simplify
 
-The loop already refactored each cycle; this is the refactor pass over the whole change. Use /simplify if available; otherwise refactor it yourself as the Refactoring section of `${CLAUDE_SKILL_DIR}/../codebase-design/SKILL.md` says, mainly remove dead code, collapse a pass-through and reuse the existing helper. Then run typechecking and the full test suite.
+The loop already refactored each cycle; this is the refactor pass over the whole change. Use /simplify if available; otherwise refactor it yourself as the Refactoring section of `${CLAUDE_SKILL_DIR}/../codebase-design/SKILL.md` says, mainly remove dead code, collapse a pass-through and reuse the existing helper. Either way, go through every comment the change adds and apply the Comments rule of `codebase-design`: rewrite the code so the comment is not needed, and keep it only as a one-line why. Then run typechecking and the full test suite.
 
 ## 6. Review
 

@@ -72,6 +72,7 @@ This rule is what makes the review usable on old codebases.
 | P3 | Primitive obsession | Strings/ints for domain concepts, magic numbers and strings, long parameter lists, boolean flag arguments |
 | P3 | Feature envy | A method uses another object's data more than its own |
 | P3 | Dead and "temporary" code | Commented-out code, unreachable branches, TODOs or fixes "for now" |
+| P3 | Comment instead of code | A comment the code could say itself: a name, an extracted function, a type or a named constant would make it unnecessary (rule in `codebase-design` Comments). A one-line why the code can't express is fine |
 
 ## 5. Remedies
 
