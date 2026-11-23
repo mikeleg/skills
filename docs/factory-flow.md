@@ -4,13 +4,13 @@ How `factory` (`/kowalski:produci`) takes a shaped backlog to merged code, and w
 
 ```mermaid
 flowchart TD
-    idea["Idea / ticket<br/>workspace-setup"] --> shape["shape-it<br/>backlog + issues / work items"]
+    idea["Idea / ticket<br/>workspace-setup"] --> shape["shape-it<br/>backlog + issues / work items<br/>baseline checklist, docs/conventions.md"]
     shape --> est["estimate (optional)"]
     est --> gate{{"Gate: you approve the backlog"}}
 
     subgraph line ["Automatic line - one slice at a time"]
         ready["Ready slices<br/>gh · az · backlog.md"] --> wt["Worktree + branch<br/>slice/feature/S-id"]
-        wt --> impl["implement<br/>subagent x1"]
+        wt --> impl["implement<br/>refactoring items first, then the slice<br/>follows docs/conventions.md<br/>subagent x1"]
         impl -- "STOP: ADR, duplicate, seams" --> stop["Question kept for you<br/>next slice"]
         impl --> pr["PR (GitHub / Azure DevOps)<br/>or local branch"]
         pr --> review["Fresh review<br/>subagent x1<br/>kets-review, code-review,<br/>criterion → test, full suite"]
@@ -18,6 +18,7 @@ flowchart TD
         fix --> review
         review -- "clean, every comment resolved" --> merge["Automatic merge"]
         merge -- "refactors left" --> refac["Project backlog<br/>label / tag refactor"]
+        refac -. "paid by the next slice<br/>on the same files" .-> wt
         review -- "still not clean after round 3" --> open["PR / branch left open"]
         merge --> clean["Cleanup<br/>worktree, local + remote branch, fetch --prune"]
         clean -- "recompute states:<br/>unblocked slices run now" --> ready
@@ -40,6 +41,8 @@ The first of these that answers: the `Provider:` line in `CLAUDE.md`, the `**Tra
 A refused merge (branch protection, policies, conflicts) is never forced: the PR stays open and the report says why.
 
 Refactoring opportunities a slice leaves (kets-review, effort medium or large, not applied by implement) go to the project backlog after the merge, not to the epic: one issue labeled `refactor` on GitHub, one work item tagged `refactor` on Azure DevOps, one line in `docs/backlog/refactoring.md` locally (committed before the merge). Duplicates get an "Also seen in" note. Slices that were not merged file nothing; their opportunities stay in the final report.
+
+The items are paid, not only filed. Before each slice the factory picks the open items (effort small or medium) on the files the slice touches, at most two, plus those the slice names with `First: #n`; implement pays them as their own commits before the slice, with no behaviour change, and the PR closes them. When the open items outnumber the slices not done, the run says so and offers a refactoring round first (shape-it refine turns them into refactor slices). Opportunities that are a pattern come back in the final report as rules to add to `docs/conventions.md`, which shape-it seeds before the first slice and implement and kets-review read.
 
 ## Subagents: how many and where
 
