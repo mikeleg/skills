@@ -1,6 +1,6 @@
 ---
 name: product-spec
-description: Write an estimable specification (spec, specifica, requisiti, analisi funzionale) for one product capability or one change to an existing codebase, with Given/When/Then acceptance criteria and an S/M/L hour size, saved in docs/product/specs. Use whenever the user wants to specify, detail, analyse or estimate a feature, a user story, a change request, a new screen or flow, or a bug fix before development, on a new or an existing project, even if they never say "spec" (e.g. "il cliente vuole aggiungere l'export PDF, come lo specifichiamo?").
+description: Write an estimable specification (spec, specifica, requisiti, analisi funzionale) for one product capability or one change to an existing codebase, with Given/When/Then acceptance criteria and the drivers of its estimate, saved in docs/product/specs. Use whenever the user wants to specify, detail, analyse or estimate a feature, a user story, a change request, a new screen or flow, or a bug fix before development, on a new or an existing project, even if they never say "spec" (e.g. "il cliente vuole aggiungere l'export PDF, come lo specifichiamo?").
 ---
 
 # Product spec
@@ -12,7 +12,7 @@ The reader is anyone on the project, including the client, so the business part 
 ## Inputs and outputs
 
 - **Reads, when present**: `docs/product/state.md`, `docs/product/mvp.md` (story map), `docs/product/decisions/`, `docs/product/prototype/`, and on existing projects the application code.
-- **Writes**: `docs/product/specs/S-NN-capability-name.md` (next free number).
+- **Writes**: `docs/product/specs/SPEC-NN-capability-name.md` (next free number).
 - **Updates, when present**: `state.md` (spec list and status, new open decisions).
 
 This skill works on its own. Every input file is optional: when one is missing, take what you need from the user's request or the repository and ask only for the minimum you cannot infer (goal, actors, main path). Do not tell the user to run another skill first, and do not invent business facts; an unknown that matters becomes an open point. Create `state.md` only if you need to record an open decision.
@@ -29,8 +29,8 @@ Write the document in the language set in `state.md`, otherwise in the user's la
 6. **Non-functional requirements**: at most 3, only those that change the design, as quality attribute scenarios (source, stimulus, response, measure). Long NFR lists get ignored; the few that matter get built.
 7. **Prototype reference**, if a prototype exists: version and screens. When spec and prototype disagree, the spec wins, and the divergence goes under "Open points" so someone updates the prototype.
 8. **Open points**: list them. If one blocks the estimate, keep the spec in *Draft* and, if `state.md` exists, add it to "Open decisions". Use product-decision only for a real choice between options.
-9. **Size**: hours of human work supported by a coding agent, including the time to review and verify the agent's output, which is the cost most often forgotten. S up to 16 h, M 16-40 h, L 40-80 h; above 80 h propose a split. Name the drivers (unknowns, integrations, legacy data).
-10. **Definition of Ready**: mark the spec *Ready* only when the goal is clear, every AC is verifiable, no open point blocks the estimate, data and integrations are known or covered by a spike, and a size is assigned. product-backlog slices only Ready specs, so be honest here.
+9. **Estimate drivers**: no hours here. The `estimate` skill turns the slices that product-backlog cuts from this spec into agentic hours, so the spec records what will move that number: unknowns, integrations, legacy data, risky assumptions. Each driver that is a real risk goes under "Open points" so it reaches `scope.md` and widens the estimate. If the spec looks like more than about eight slices, propose splitting it, because a spec that large usually holds more than one user goal.
+10. **Definition of Ready**: mark the spec *Ready* only when the goal is clear, every AC is verifiable, no open point blocks the estimate, data and integrations are known or covered by a spike, and the estimate drivers are listed. product-backlog slices only Ready specs, so be honest here.
 
 ## Delta spec (existing project)
 
@@ -52,10 +52,9 @@ For a bug or a small change keep it short: current behaviour, new behaviour, ACs
 ## Template
 
 ```markdown
-# S-NN Capability name
+# SPEC-NN Capability name
 
 - Status: Draft | Ready
-- Size: S | M | L (hour range)
 - Prototype: vX, screens ...
 - Decisions: D-NNN, ...
 

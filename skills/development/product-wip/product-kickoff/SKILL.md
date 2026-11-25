@@ -1,6 +1,6 @@
 ---
 name: product-kickoff
-description: Starting point for taking an idea, an MVP or a change request to estimable specs and a backlog. Walks a short decision tree (new or existing project, MVP agreed or not, bug or feature), sets up docs/product/state.md and calibration.md, and says which product skill to run next. Use when the user starts a new project or client engagement, says "ho un'idea", "nuovo progetto", "il cliente chiede", "da dove parto", or wants to organise work before specifying and estimating it.
+description: Starting point for taking an idea, an MVP or a change request to estimable specs and a backlog. Walks a short decision tree (new or existing project, MVP agreed or not, bug or feature), sets up docs/product/state.md, and says which product skill to run next. Use when the user starts a new project or client engagement, says "ho un'idea", "nuovo progetto", "il cliente chiede", "da dove parto", or wants to organise work before specifying and estimating it.
 ---
 
 # Product kickoff
@@ -12,7 +12,7 @@ Kickoff is optional. Every other product skill can be invoked directly and copes
 ## Inputs and outputs
 
 - **Reads**: `docs/product/state.md` if present, the repository (application code, git remote, build files), any material the user provides.
-- **Writes**: `docs/product/state.md`, and `docs/product/calibration.md` if missing.
+- **Writes**: `docs/product/state.md`.
 - If `state.md` already exists, summarise phase and next step and ask whether to continue or open a new request, rather than starting over and losing what was decided.
 
 Write the documents in the language the user chooses (default Italian) and record it in `state.md`. Pattern names stay in English.
@@ -41,12 +41,12 @@ New features on a running project are routine agile work, so there is no problem
 
 - **Backlog target**: infer from the git remote (`github.com` means GitHub, `dev.azure.com` or `visualstudio.com` means Azure DevOps, otherwise local) and confirm.
 - **Stack**: infer from the repository, otherwise ask. It only feeds estimates; the skills describe work by role (interface, API, data, integration) so they stay stack-agnostic.
-- **Quote overhead**: percentage for management, release and meetings. If the user gives none, leave it empty; product-backlog will flag it in the quote.
+- **Human time**: hours or percentage for the human work the `estimate` skill leaves out (review outside agent sessions, meetings, client alignment). product-backlog copies it into `scope.md` as a separate quote line. If the user gives none, leave it empty and say the quote will lack it.
 
 ## Guidelines
 
 - Record undecided client choices under "Open decisions" instead of filling them in, because an invented decision ends up in a quote.
-- Estimates across the product skills are hours of human work supported by a coding agent, including review of the agent's output.
+- Hours come from the `estimate` skill, in agentic hours (active coding-agent session time), calibrated on the actuals `log-task-hours` records. Human time is a separate line, so both stay visible in the quote.
 - If a skill named in the path is not installed, say so and describe the minimum the user can provide to continue without it.
 
 ## `state.md` template
@@ -60,7 +60,7 @@ New features on a running project are routine agile work, so there is no problem
 - Prototype: yes (vX) | no
 - Backlog: GitHub | Azure DevOps | local
 - Stack: ...
-- Quote overhead: ...%
+- Human time: ... h | ...%
 - Document language: Italian
 
 ## Phase
@@ -70,21 +70,10 @@ What is done and what is not.
 - [ ] Problem - prerequisites: ...
 
 ## Specs
-- S-NN Name - Draft | Ready
+- SPEC-NN Name - Draft | Ready
 
 ## Next step
 The skill to run and on what.
 ```
 
-## `calibration.md` template
-
-```markdown
-# Estimate calibration
-
-| Slice | Size | Agent leverage | PERT estimate (h) | Actual hours | Deviation % |
-|---|---|---|---|---|---|
-```
-
-The user records actual hours when a slice is done. After at least 10 slices, product-backlog uses the mean deviation per size and agent leverage to correct new estimates; this is the only way the estimates become credible over time.
-
-Write both files' headings in the document language.
+Write the headings in the document language.

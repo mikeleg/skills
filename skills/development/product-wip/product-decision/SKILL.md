@@ -23,7 +23,7 @@ Write the ADR in the language set in `state.md`, otherwise in the user's languag
 2. **Classify reversibility**, because it decides how much analysis the question deserves.
    - *Two-way door* (cheap to change later): propose a choice with a one-line reason and ask for a quick yes.
    - *One-way door* (data model, public contracts, platform choice, commitments to the client): do the full analysis below.
-3. **Options**: two or three, one of them the minimal 80/20 option. For each: what it means concretely, pros, cons, effect on the estimate in hours (order of magnitude), reversibility.
+3. **Options**: two or three, one of them the minimal 80/20 option. For each: what it means concretely, pros, cons, effect on the work (more or fewer slices, a spike added or removed), reversibility.
 4. **Recommend** one option in a sentence, then let the user choose. On a one-way door the choice is theirs, since they carry the consequences with the client.
 5. **Record** the ADR with the template.
 6. **Update `state.md`** if it exists: remove the question, add any new ones with their prerequisites, write the next step.
@@ -43,7 +43,7 @@ Write the ADR in the language set in `state.md`, otherwise in the user's languag
 - Status: Proposed | Accepted | Superseded by D-NNN
 - Date: YYYY-MM-DD
 - Reversibility: one-way door | two-way door
-- Relates to: S-NN, F-NNN (if known)
+- Relates to: SPEC-NN, S<n> slices (if known)
 
 ## Context
 The question and why it must be decided now, in 3-5 lines.
