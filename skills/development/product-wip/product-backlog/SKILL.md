@@ -1,6 +1,6 @@
 ---
 name: product-backlog
-description: Turn specs or plain requirements into an agile backlog of vertical slices sized S/M/L, every L split until none is left, each with an "In brief" line, saved in docs/product/backlog.md with a short docs/product/scope.md, ready for the estimate skill and optionally exported to GitHub Issues or Azure DevOps. Use whenever the user asks for a backlog, user stories, tasks, work items, sprint planning, or to break a feature or spec into implementable pieces before estimating or quoting it, even if they never say "slice".
+description: Turn specs or plain requirements into an agile backlog of vertical slices sized S/M/L, every L split until none is left, each with an "In brief" line, saved in docs/product/backlog.md with a short docs/product/scope.md, ready for the estimate skill, and published as GitHub Issues or Azure DevOps work items when the project's backlog lives there. Use whenever the user asks for a backlog, user stories, tasks, work items, sprint planning, or to break a feature or spec into implementable pieces before estimating or quoting it, even if they never say "slice".
 ---
 
 # Product backlog
@@ -13,11 +13,11 @@ Each slice must be self-contained enough that any coding agent or harness could 
 
 ## Inputs and outputs
 
-- **Reads, when present**: `docs/product/specs/` (Ready specs), `docs/product/decisions/`, `docs/product/prototype/`, `docs/product/state.md`, and the application code.
+- **Reads, when present**: `docs/product/specs/` (Ready specs), `docs/product/decisions/`, `docs/product/prototype/`, `docs/product/state.md`, `docs/product/tracker.md`, and the application code.
 - **Writes**: `docs/product/backlog.md` and `docs/product/scope.md`.
 - **Updates, when present**: `state.md` (next step).
 
-This skill works on its own. If there are no spec files, work from the specs or requirements the user provides; list what is missing, state assumptions explicitly and slice what is clear enough. Specs marked *Draft* are listed with the reason and left out, because slicing an unready spec produces slices that will be redone. If `state.md` is missing, ask for the backlog target only when exporting. Do not tell the user to run another skill first.
+This skill works on its own. If there are no spec files, work from the specs or requirements the user provides; list what is missing, state assumptions explicitly and slice what is clear enough. Specs marked *Draft* are listed with the reason and left out, because slicing an unready spec produces slices that will be redone. If `state.md` is missing, work out the backlog target from the git remote as described under "Tracker". Do not tell the user to run another skill first.
 
 Write the documents in the language set in `state.md`, otherwise in the user's language (default Italian). Pattern names stay in English.
 
@@ -40,20 +40,23 @@ Write the documents in the language set in `state.md`, otherwise in the user's l
 9. **Order**: walking skeleton, then high technical risk, then value, with explicit `Blocked by` dependencies. Risk goes first so bad news arrives while there is still budget to react.
 10. **Write `scope.md`**, short, with the sections `estimate` reads (template below). Every open risk listed there widens the maximum of the slices it touches, so leaving one out narrows the quote without reason.
 11. **Write `backlog.md`**: a header with a link to `scope.md`, the implementer profile and the next step, then the slices in order, then a `## Later` section for what was cut.
-12. **Hand off**: say that the next step is `estimate docs/product/backlog.md`, and that the quote is `estimate`'s prudent total plus the human time line in `scope.md`.
+12. **Publish to the tracker** when the target is GitHub or Azure DevOps (see "Tracker"). This is part of the run, not an extra the user has to remember.
+13. **Hand off**: say where the backlog lives (file, and issues or work items if published), that the next step is `estimate docs/product/backlog.md`, and that the quote is `estimate`'s prudent total plus the human time line in `scope.md`.
 
 ## Agentic hours and human time
 
 `estimate` measures agentic hours, the active coding-agent session time, and excludes human work. A quote still has to pay for the human time around the sessions: reviewing the agent's output outside a session, meetings, client alignment, waiting for answers. Record it in `scope.md` under "Human time" as hours or as a percentage of the agentic total, given by the user or taken from `state.md`. Keep it a separate, declared line in the quote rather than spreading it over the slices, so the agentic part stays comparable with the logged actuals and the human part stays visible to the client.
 
-## Export (adapter pattern)
+## Tracker (adapter pattern)
 
-`backlog.md` is the source of truth; export is a separate, optional step so the slicing never depends on a tool.
+The slicing is the same whatever the tracker; only where the backlog ends up changes. `backlog.md` is always written, because `estimate` reads it, and when the project uses a tracker the issues or work items are where the team actually works, so they must be created too.
 
-1. Target from `state.md`, otherwise from the git remote: `github.com` means GitHub, `dev.azure.com` or `visualstudio.com` means Azure DevOps, anything else means local only.
-2. Show the list of items and ask for confirmation before creating anything remotely: it is visible to others and tedious to undo.
-3. GitHub: `gh issue create`. Azure DevOps: `az boards work-item create`. One slice per item; spikes get a dedicated label or type.
-4. Write the external ID next to each slice on its `**Tracker:**` line, and on later runs update those items instead of creating duplicates.
+1. **Find the tracker before slicing.** Read `docs/product/tracker.md`, written by product-kickoff: it names the tracker and holds the exact commands to read and publish. A GitHub or Azure DevOps tracker there is a project setting, not a hint: do not fall back to local because the user did not mention it again.
+2. **No `tracker.md`?** Use the `Backlog:` line of `state.md`, otherwise the git remote (`github.com` means GitHub, `dev.azure.com` or `visualstudio.com` means Azure DevOps, anything else local). Take the commands from the matching template in `${CLAUDE_SKILL_DIR}/../product-kickoff/trackers/`, fill in the values you can read (repo; org, project and work item types via `az boards work-item type list`), ask only for what you cannot, and offer to save the result as `docs/product/tracker.md` for the next run.
+3. **Run the setup check** in the tracker file. If it fails, say exactly what is missing, keep `backlog.md`, and do not pretend the items were created.
+4. **Read what is already there** with the tracker's read commands. Existing issues or work items that describe the same work as a slice are input, not duplicates: link them on the slice's `**Tracker:**` line instead of creating new ones.
+5. **Confirm once, then publish** with the tracker's publish commands: the feature container, one item per slice under it, parent links, blocked-by links, spikes marked as such. Show the list of items to create or update first, because they are visible to others and tedious to undo.
+6. **Link back** as the tracker file says, so `backlog.md` and the tracker point at each other, and on later runs update those items instead of creating duplicates. Re-splitting an L that was already published updates the original item and creates the new parts, rather than deleting history.
 
 ## `scope.md` template
 
@@ -92,7 +95,7 @@ agent alone | pair | human team | mixed
 **Size:** S | M - **Agent leverage:** high | medium | low
 **Blocked by:** S<n>, ... | none
 **From:** SPEC-NN (AC-1, AC-3) - **Decisions:** D-NNN
-**Tracker:** (ID after export)
+**Tracker:** (issue number or work item ID once published)
 
 **Acceptance criteria**
 - Given ... When ... Then ...

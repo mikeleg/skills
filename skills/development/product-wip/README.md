@@ -6,10 +6,10 @@ A separate set that goes from an idea or a change request to specs and a backlog
 
 | Skill | What it does |
 | --- | --- |
-| `product-kickoff` | Optional entry point: a short decision tree (new or existing project, MVP agreed or not, bug or feature) that sets up `docs/product/state.md` and names the next skill. |
+| `product-kickoff` | Optional entry point: a short decision tree (new or existing project, MVP agreed or not, bug or feature) that sets up `docs/product/state.md` and `docs/product/tracker.md` (GitHub, Azure DevOps or local, with the exact commands, checked at setup) and names the next skill. |
 | `product-decision` | Settles one open question at a time (Mikado graph, one-way or two-way door) with options, a recommendation and the user's choice, recorded as an ADR in `docs/product/decisions/`. |
 | `product-spec` | Writes an estimable spec for one capability, or a delta spec for a change to an existing codebase after a light reading of the code it touches: Given/When/Then and EARS criteria, at most three NFRs, Definition of Ready and the drivers of the estimate. |
-| `product-backlog` | Cuts Ready specs, or requirements given directly, into vertical slices (walking skeleton, SPIDR, INVEST) with S/M/L sizes in `estimate`'s meaning, every L split until none is left, an In brief line and agent leverage per slice. Writes `docs/product/backlog.md` and a short `scope.md` for `estimate`, with optional export to GitHub Issues or Azure DevOps after confirmation. |
+| `product-backlog` | Cuts Ready specs, or requirements given directly, into vertical slices (walking skeleton, SPIDR, INVEST) with S/M/L sizes in `estimate`'s meaning, every L split until none is left, an In brief line and agent leverage per slice. Writes `docs/product/backlog.md` and a short `scope.md` for `estimate`, published as GitHub Issues or Azure DevOps work items, after confirmation, when the project backlog lives there. |
 
 ## Open before shipping
 
