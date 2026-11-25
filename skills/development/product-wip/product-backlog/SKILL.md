@@ -13,7 +13,7 @@ Each slice must be self-contained enough that any coding agent or harness could 
 
 ## Inputs and outputs
 
-- **Reads, when present**: `docs/product/specs/` (Ready specs), `docs/product/decisions/`, `docs/product/prototype/`, `docs/product/state.md`, and the application code.
+- **Reads, when present**: `docs/product/specs/` (Ready specs), `docs/product/decisions/`, `docs/product/prototype/`, `docs/product/state.md`, `docs/product/tracker.md`, and the application code.
 - **Writes**: `docs/product/backlog.md` and `docs/product/scope.md`.
 - **Updates, when present**: `state.md` (next step).
 
@@ -51,11 +51,12 @@ Write the documents in the language set in `state.md`, otherwise in the user's l
 
 The slicing is the same whatever the tracker; only where the backlog ends up changes. `backlog.md` is always written, because `estimate` reads it, and when the project uses a tracker the issues or work items are where the team actually works, so they must be created too.
 
-1. **Find the target before slicing.** Read the `Backlog:` line of `state.md` (written by product-kickoff). If `state.md` or the line is missing, use the git remote: `github.com` means GitHub, `dev.azure.com` or `visualstudio.com` means Azure DevOps, anything else means local only. A `Backlog: GitHub` or `Backlog: Azure DevOps` line is a project setting, not a hint: do not fall back to local because the user did not mention the tracker again.
-2. **Read what is already there.** On GitHub list the open issues (`gh issue list --state open --json number,title,body,labels`); on Azure DevOps query the work items under the feature. Issues that describe the same work as a slice are input, not duplicates: link them on the slice's `**Tracker:**` line instead of creating new ones.
-3. **Check access.** GitHub needs `gh` authenticated on the repo, Azure DevOps needs `az` with the azure-devops extension and an org and project. If access is missing, say exactly what is missing, keep `backlog.md`, and do not pretend the items were created.
-4. **Confirm once, then publish.** Show the list of items to create or update and ask for confirmation, because they are visible to others and tedious to undo. Then create them: GitHub `gh issue create` with the slice body, `Blocked by #n` lines and a task list on a tracking issue for the feature; Azure DevOps `az boards work-item create`, one User Story or PBI per slice under a Feature, with the acceptance criteria in their field and Predecessor links for `Blocked by`. Spikes get a dedicated label or type.
-5. **Link back.** Write each issue number or work item ID on the slice's `**Tracker:**` line, so file and tracker point at each other, and on later runs update those items instead of creating duplicates. Re-splitting an L that was already published updates the original item and creates the new parts, rather than deleting history.
+1. **Find the tracker before slicing.** Read `docs/product/tracker.md`, written by product-kickoff: it names the tracker and holds the exact commands to read and publish. A GitHub or Azure DevOps tracker there is a project setting, not a hint: do not fall back to local because the user did not mention it again.
+2. **No `tracker.md`?** Use the `Backlog:` line of `state.md`, otherwise the git remote (`github.com` means GitHub, `dev.azure.com` or `visualstudio.com` means Azure DevOps, anything else local). Take the commands from the matching template in `${CLAUDE_SKILL_DIR}/../product-kickoff/trackers/`, fill in the values you can read (repo; org, project and work item types via `az boards work-item type list`), ask only for what you cannot, and offer to save the result as `docs/product/tracker.md` for the next run.
+3. **Run the setup check** in the tracker file. If it fails, say exactly what is missing, keep `backlog.md`, and do not pretend the items were created.
+4. **Read what is already there** with the tracker's read commands. Existing issues or work items that describe the same work as a slice are input, not duplicates: link them on the slice's `**Tracker:**` line instead of creating new ones.
+5. **Confirm once, then publish** with the tracker's publish commands: the feature container, one item per slice under it, parent links, blocked-by links, spikes marked as such. Show the list of items to create or update first, because they are visible to others and tedious to undo.
+6. **Link back** as the tracker file says, so `backlog.md` and the tracker point at each other, and on later runs update those items instead of creating duplicates. Re-splitting an L that was already published updates the original item and creates the new parts, rather than deleting history.
 
 ## `scope.md` template
 

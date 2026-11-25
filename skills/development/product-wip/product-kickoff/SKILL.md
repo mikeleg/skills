@@ -12,7 +12,7 @@ Kickoff is optional. Every other product skill can be invoked directly and copes
 ## Inputs and outputs
 
 - **Reads**: `docs/product/state.md` if present, the repository (application code, git remote, build files), any material the user provides.
-- **Writes**: `docs/product/state.md`.
+- **Writes**: `docs/product/state.md` and `docs/product/tracker.md`.
 - If `state.md` already exists, summarise phase and next step and ask whether to continue or open a new request, rather than starting over and losing what was decided.
 
 Write the documents in the language the user chooses (default Italian) and record it in `state.md`. Pattern names stay in English.
@@ -39,7 +39,7 @@ New features on a running project are routine agile work, so there is no problem
 
 ### Project settings
 
-- **Backlog target**: infer from the git remote (`github.com` means GitHub, `dev.azure.com` or `visualstudio.com` means Azure DevOps, otherwise local) and confirm. Write it on the `Backlog:` line of `state.md` exactly as `GitHub`, `Azure DevOps` or `local`, because product-backlog reads that line to decide where to publish the slices. For GitHub or Azure DevOps, also check that `gh` or `az` can reach the repo or project now, so a missing login surfaces at kickoff and not at the end of the slicing.
+- **Backlog target**: infer from the git remote (`github.com` means GitHub, `dev.azure.com` or `visualstudio.com` means Azure DevOps, otherwise local) and confirm. Write it on the `Backlog:` line of `state.md` exactly as `GitHub`, `Azure DevOps` or `local`. Then write `docs/product/tracker.md` from the matching template in `${CLAUDE_SKILL_DIR}/trackers/` (`github.md`, `azure-devops.md`, `local.md`), filling in the real values: repo for GitHub; organization, project, process and the work item types read from the project, area and iteration for Azure DevOps. The file holds the exact commands product-backlog uses to read and publish, so the tracker is configured once per project instead of being guessed at every run. Run the template's setup check before moving on, so a missing login or a wrong project surfaces at kickoff and not at the end of the slicing; if it fails, say what is missing and keep the choice, do not switch to local.
 - **Stack**: infer from the repository, otherwise ask. It only feeds estimates; the skills describe work by role (interface, API, data, integration) so they stay stack-agnostic.
 - **Human time**: hours or percentage for the human work the `estimate` skill leaves out (review outside agent sessions, meetings, client alignment). product-backlog copies it into `scope.md` as a separate quote line. If the user gives none, leave it empty and say the quote will lack it.
 
