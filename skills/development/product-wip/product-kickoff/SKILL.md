@@ -39,7 +39,7 @@ New features on a running project are routine agile work, so there is no problem
 
 ### Project settings
 
-- **Backlog target**: infer from the git remote (`github.com` means GitHub, `dev.azure.com` or `visualstudio.com` means Azure DevOps, otherwise local) and confirm.
+- **Backlog target**: infer from the git remote (`github.com` means GitHub, `dev.azure.com` or `visualstudio.com` means Azure DevOps, otherwise local) and confirm. Write it on the `Backlog:` line of `state.md` exactly as `GitHub`, `Azure DevOps` or `local`, because product-backlog reads that line to decide where to publish the slices. For GitHub or Azure DevOps, also check that `gh` or `az` can reach the repo or project now, so a missing login surfaces at kickoff and not at the end of the slicing.
 - **Stack**: infer from the repository, otherwise ask. It only feeds estimates; the skills describe work by role (interface, API, data, integration) so they stay stack-agnostic.
 - **Human time**: hours or percentage for the human work the `estimate` skill leaves out (review outside agent sessions, meetings, client alignment). product-backlog copies it into `scope.md` as a separate quote line. If the user gives none, leave it empty and say the quote will lack it.
 
