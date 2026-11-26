@@ -26,7 +26,7 @@ The user is the consultant. The consultant is not the client.
 Wayfinder, `to-spec` and `to-tickets` cannot run with the Skill tool. Their frontmatter sets `disable-model-invocation: true`. Read the files instead.
 
 1. Look for the newest match of `~/.claude/plugins/cache/*/mattpocock-skills/*/skills/engineering/wayfinder/SKILL.md`.
-2. If there is no match, stop. Tell the user to install `mattpocock-skills@claude-plugins-official`.
+2. If there is no match, stop. Tell the user to add the marketplace `mattpocock/skills` and install `mattpocock-skills@mattpocock`.
 
 The skills `grilling`, `domain-modeling`, `research` and `prototype` are normal skills of the same plugin. Call them with the Skill tool, as wayfinder says.
 
