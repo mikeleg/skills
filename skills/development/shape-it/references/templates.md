@@ -71,7 +71,6 @@ Order is dependency order. A slice with no "Blocked by" can start in parallel.
 - <public interface the tests go through, e.g. `POST /api/x`, `cli run`, `parseInvoice()`> – covers AC1, AC2. Catches <…>; misses <…>.
 
 ### Implementation notes  *(agent / pair profiles; team can skip)*
-- First: #<n> <refactoring item title> *(optional: an open refactoring item on these files, done as its own commit before the slice)*
 - Build: <pattern> as the shared one in <path> · Reuse: <pattern> (<path>) *(per the rules in `docs/conventions.md`)*
 - Touch: <files/modules>. Do not touch: <files/modules>.
 - Interfaces to respect: <…>

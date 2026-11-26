@@ -6,7 +6,7 @@ Fill the placeholders in <angle brackets>; leave out empty sections and lines.
 Reviewed: <target, files, lines changed>. Yardstick: <how the project is organized, one line>
 
 ### Fix first
-1. <the move, one imperative sentence> (finding 2, or opportunity O1) · `file:line` · effort <small | medium | large>
+1. <the move, one imperative sentence> (finding 2) · `file:line` · effort <small | medium | large>
 
 ### Findings
 **1. <the problem in plain words, at most ~10 words>** · P1 <smell> · <introduced | worsened | existing> · effort <small | medium | large>
@@ -19,6 +19,3 @@ Reviewed: <target, files, lines changed>. Yardstick: <how the project is organiz
 
 Minor: <P3 findings, one line, separated by ";">
 Left out: <how many, of which priority>
-
-### Opportunities (not for now)
-- **O1. <what>** · `file:line` · <changes in the last 12 months> changes · effort <small | medium | large> · risk <low | medium | high>: <why it pays off>

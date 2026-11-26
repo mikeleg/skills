@@ -1,6 +1,6 @@
 ---
 name: kets-review
-description: Review a change (current diff, branch, PR or path) for the design regressions it introduces, or the whole project on request ("project") - spaghetti code and related smells, logic in the wrong place, duplicates of existing helpers, weaker types, pass-through wrappers, contradictions with the project's ADRs (docs/adr/) and glossary (GLOSSARY.md) - judged against the project's own architecture, on any stack and any age of codebase. Lists at most 3 improvement opportunities in the touched code without applying them. With --comment, posts the report on the GitHub or Azure DevOps PR. Complements /code-review (bugs). Use when the user asks for a design, quality or structure review of a change, a spaghetti check, "/kets-review", or when factory reaches its review step.
+description: Review a change (current diff, branch, PR or path) for the design regressions it introduces, or the whole project on request ("project") - spaghetti code and related smells, logic in the wrong place, duplicates of existing helpers, weaker types, pass-through wrappers, contradictions with the project's ADRs (docs/adr/) and glossary (GLOSSARY.md) - judged against the project's own architecture, on any stack and any age of codebase. With --comment, posts the report on the GitHub or Azure DevOps PR. Complements /code-review (bugs). Use when the user asks for a design, quality or structure review of a change, a spaghetti check, "/kets-review", or when factory reaches its review step.
 ---
 
 # Kets Review
@@ -26,7 +26,7 @@ Two modes: the change (default) or the whole project (only when asked).
 
 - Target: the whole repo, or that folder.
 - Don't read everything, 80/20: review the hotspots, the 10 files changed most often in the last 12 months (`git log --since="12 months ago" --format= --name-only -- <folder> | sort | uniq -c | sort -rn`), skipping generated, vendored, lock and test-data files. Name them in the report's "Reviewed" line.
-- There is no change, so step 3 doesn't apply: every problem is a finding tagged `existing`, ADR conflicts included. The report has no verdict and no Opportunities section; the P1/P2/P3 limits of step 7 stay.
+- There is no change, so step 3 doesn't apply: every problem is a finding tagged `existing`, ADR conflicts included. The report has no verdict; the P1/P2/P3 limits of step 7 stay.
 
 ## 2. Learn the project's conventions first
 
@@ -44,8 +44,8 @@ Write down 3-5 lines: how the project is organized (layers, vertical slices, MVC
 ## 3. Classify each problem by origin
 
 - **Introduced** by the change: finding, to fix.
-- **Worsened** by the change (it adds to an existing problem, e.g. one more `if` in a function that was already spaghetti): finding on the added part only. The change must not make it worse; the pre-existing part can become an opportunity.
-- **Pre-existing** in code the change touches (same function or class), not worsened: at most an opportunity.
+- **Worsened** by the change (it adds to an existing problem, e.g. one more `if` in a function that was already spaghetti): finding on the added part only. The change must not make it worse.
+- **Pre-existing** in code the change touches (same function or class), not worsened: not reported.
 - **Pre-existing** in code the change doesn't touch: not reported.
 
 This rule is what makes the review usable on old codebases.
@@ -92,13 +92,12 @@ Write it in the conversation's language, for someone who hasn't read the diff: p
 
 Rules:
 
-- **Verdict** first. "fixes needed" when a reported P1 or P2 finding is neither fixed nor justified with a real technical reason. An "Against a decision" finding about an ADR is lifted only by aligning the code with the ADR or by a superseding ADR the user approved, never by a technical reason. P3 findings and opportunities never block. Passing tests is not a reason to approve.
+- **Verdict** first. "fixes needed" when a reported P1 or P2 finding is neither fixed nor justified with a real technical reason. An "Against a decision" finding about an ADR is lifted only by aligning the code with the ADR or by a superseding ADR the user approved, never by a technical reason. P3 findings never block. Passing tests is not a reason to approve.
 - **Effort** is what the fix takes the agent that will make it, not a person's time: **small** = one place in one file, and the existing tests already cover it; **medium** = several files or call sites, or tests to add or change; **large** = changes an interface used elsewhere, crosses modules or layers, or needs a decision from the user first.
-- **Fix first**: 1-3 moves with the most impact for the least work, picked across findings and opportunities. Point to the finding (1, 2...) or opportunity (O1, O2...) by its number instead of repeating it. An "Against a decision" finding, if there is one, is always the first item, whatever its effort.
+- **Fix first**: 1-3 moves with the most impact for the least work, picked among the findings. Point to the finding (1, 2...) by its number instead of repeating it. An "Against a decision" finding, if there is one, is always the first item, whatever its effort.
 - **Findings** (introduced or worsened) are numbered, so the user can say "fix 2". "Against a decision" findings are always listed first, exempt from the effort reordering. Order the others by impact over effort: the priority gives the impact, the effort reorders, so a small P2 comes before a large P1. P1: all of them. P2: at most 5, the smallest effort first. P3: at most 3, only small ones, in the "Minor" line.
-- **Opportunities**: at most 3, numbered O1, O2, O3, pre-existing in the touched code, chosen by payoff over effort. Weigh payoff by how often the file changes: `git log --since="12 months ago" --format= --name-only -- <file> | wc -l`; debt in a file that changes often pays off more. The review only lists them: it never applies them or opens tickets (factory's fix round applies the small ones). An opportunity that is already an open refactoring item (GitHub issue labelled `refactor`, Azure DevOps work item tagged `refactor`, a line in `docs/backlog/refactoring.md`) is not listed again: name it in one line, `Already filed: #<n>`, only if the change makes it worse. On a re-review of the same PR, don't repeat an opportunity an earlier kets-review comment there already listed.
 - One sentence per bullet, no paragraphs. A code snippet only when the signal can't be shown otherwise, at most 3 lines.
-- Leave out empty sections and lines ("Minor", "Left out", "Opportunities") instead of writing "none".
+- Leave out empty sections and lines ("Minor", "Left out") instead of writing "none".
 
 If there is nothing to report, say so in one line; no filler praise. Be direct and specific, never rude, never watered down.
 

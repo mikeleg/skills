@@ -117,7 +117,7 @@ Refactor often, in small moves, so debt never grows into a big refactor. Three m
 
 - **Before a change** (preparatory refactor): if the structure of the code you are about to change makes the change hard, refactor it first, then make the change: make the change easy, then make the easy change. Only where tests already cover that code; otherwise make the change first and refactor on green.
 - **After every green**: the code and the test that cycle touched.
-- **At the end of a change**: the whole change, plus the small opportunities a review found in the code it touched.
+- **At the end of a change**: the whole change.
 
 Bigger refactors (medium or large effort, or outside the code the change touches) are their own task: list them, don't start them.
 
