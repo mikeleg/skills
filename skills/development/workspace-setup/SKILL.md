@@ -1,6 +1,6 @@
 ---
 name: workspace-setup
-description: Set up a development workspace for working with a coding agent - code repo, raw-sources folder, run/debug config and agent instructions - on Azure DevOps, GitHub or local only, for any stack, and warns if the workflow skills (shape-it, estimate, implement, factory, tdd, kets-review) are missing. Use when the user wants to start a new project, set up or initialize a workspace or repo, onboard an existing repo for agent work, or says "prepare the repo", "set up the project", "init the workspace".
+description: Set up a development workspace for working with a coding agent - code repo, raw-sources folder, run/debug config and agent instructions - on Azure DevOps, GitHub or local only, for any stack, configures Matt Pocock's skills (setup-matt-pocock-skills), and warns if the workflow skills (shape-it, estimate, implement, factory, tdd, kets-review) or the mattpocock-skills plugin are missing. Use when the user wants to start a new project, set up or initialize a workspace or repo, onboard an existing repo for agent work, or says "prepare the repo", "set up the project", "init the workspace".
 ---
 
 # Workspace setup
@@ -141,6 +141,25 @@ There is no separate questions file. Every open point goes in the "To verify" li
 
 `CLAUDE.md` files are loaded into every session, so keep them short: commands, flow and rules for working. Domain terms go in the glossary (`GLOSSARY.md`), decisions in `docs/adr/`, feature scope in `docs/backlog/`. Each fact lives in one place: don't duplicate.
 
+## 6b. Matt Pocock's skills setup
+
+The skills of the `mattpocock-skills` plugin, which `shape-it` calls, need a one-time setup of the repo. The skill `setup-matt-pocock-skills` does it. It has `disable-model-invocation: true`, so the Skill tool cannot run it. Read its file instead.
+
+1. Look for the newest match of `~/.claude/plugins/cache/*/mattpocock-skills/*/skills/engineering/setup-matt-pocock-skills/SKILL.md`.
+2. If there is no match, skip this step. Report it as missing in the close-out (step 7).
+3. Read the file. Skip its frontmatter. Follow it inside `app/`, with the presets below.
+
+The user already answered these questions in step 1, so Matt's skill does not ask them again:
+
+- **Issue tracker (his Section A):** GitHub provider → GitHub. Azure DevOps or local only → local markdown (`.scratch/`). Do not ask. State the choice in the draft.
+- **Domain docs (his Section C):** single-context. Ask only if his own monorepo signals are present.
+- **File to edit:** `app/CLAUDE.md`. It exists at this point. Never create `AGENTS.md`.
+- **Confirmation (his step 3):** do not show a second draft. Add his draft to the diff of the "Merge into existing files" rule. The user reviews one draft.
+
+His skill writes `docs/agents/issue-tracker.md`, `docs/agents/domain.md` and an `## Agent skills` block in `app/CLAUDE.md`. It writes `docs/agents/triage-labels.md` only when the `triage` skill is installed.
+
+With local markdown, do not add `.scratch/` to `.gitignore`. The map and the tickets stay versioned. His templates do not ignore it.
+
 ## 7. Skills the workflow needs
 
 The workspace is only useful if the agent has the skills that work in it. Check them and **warn** about what's missing; don't install anything.
@@ -153,13 +172,17 @@ The workspace is only useful if the agent has the skills that work in it. Check 
 | `factory` | `mikeleg-skills` plugin | ready slices (from GitHub issues, Azure DevOps work items or `backlog.md`) → implemented, reviewed, fixed and merged, one at a time |
 | `tdd` | `mikeleg-skills` plugin | red → green → refactor, features or bugs; used by `implement` |
 | `kets-review` | `mikeleg-skills` plugin | design review of a change; used by `factory` |
+| `wayfinder`, `to-spec`, `to-tickets` and the skills `shape-it` calls | `mattpocock-skills` plugin (marketplace `mattpocock/skills`) | map of decision tickets, then spec and tickets; used by `shape-it` |
 | `/simplify`, `/code-review` | bundled with Claude Code | `/simplify` used by `implement`, `/code-review` by `factory` |
 
 **Check.** A skill counts as available if it appears in this session's list of available skills, or if its kowalski wrapper does (e.g. `/kowalski:produci` for `factory`). If one is missing, `claude plugin list --json` tells whether `mikeleg-skills@mikeleg` is installed but disabled.
 
+A skill of `mattpocock-skills` counts as available if its `SKILL.md` is in the plugin cache: `~/.claude/plugins/cache/*/mattpocock-skills/*/skills/*/<skill>/SKILL.md`. The slash commands with `disable-model-invocation` may not appear in the session list. `claude plugin list --json` also tells whether the plugin is installed.
+
 **Warn.** For each missing skill, one line in the close-out: what won't work without it, and the command the user can run:
 
 - `mikeleg-skills` skills: `/plugin marketplace add mikeleg/skills` then `/plugin install mikeleg-skills@mikeleg` in Claude Code, or `npx skills add mikeleg/skills` for other agents.
+- `mattpocock-skills` skills: `claude plugin marketplace add mattpocock/skills` then `claude plugin install mattpocock-skills@mattpocock`. Without them, `shape-it` cannot run.
 - Bundled skills: Claude Code is too old, `claude update`.
 
 ## 8. Close
@@ -171,7 +194,8 @@ The workspace is only useful if the agent has the skills that work in it. Check 
    - `.vscode/` at the root with real tasks and launch configs
    - Internal packages configured, or recorded as open points
    - `app/CLAUDE.md` and root `CLAUDE.md` written, with real commands
-   - Workflow skills available: `shape-it`, `estimate`, `implement`, `factory`, `tdd`, `kets-review`, and the bundled `/simplify`, `/code-review` (missing ones listed with their install command)
+   - Matt Pocock's setup ran, with the files it wrote (`docs/agents/*.md`, the `## Agent skills` block in `app/CLAUDE.md`), or skipped because the plugin is missing
+   - Workflow skills available: `shape-it`, `estimate`, `implement`, `factory`, `tdd`, `kets-review`, the `mattpocock-skills` plugin, and the bundled `/simplify`, `/code-review` (missing ones listed with their install command)
 2. List the open points, all recorded in the "To verify" list of `app/CLAUDE.md`.
 3. Ask whether to commit (and push, if there's a remote) the scaffolding of `app/`, with a descriptive message. Never without confirmation.
 4. Propose the next step: `shape-it` for the first feature or MVP.
