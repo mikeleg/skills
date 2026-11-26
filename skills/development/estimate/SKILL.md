@@ -10,7 +10,7 @@ Estimate how many hours of agentic work the slices of a backlog will take: activ
 
 ## 1. Input
 
-From `$ARGUMENTS`, otherwise look for `docs/backlog/*/scope.md` + `backlog.md` (or the repo's convention), otherwise a backlog already on Azure DevOps (Feature id, or the PBIs / User Stories under it) or GitHub (epic issue). Read scope.md for the riskiest assumption, the prototype status, the open risks and the implementer profile.
+From `$ARGUMENTS`, otherwise look for the backlog in the repo's convention, otherwise a backlog already on Azure DevOps (Feature id, or the PBIs / User Stories under it) or GitHub (epic issue). Read scope.md for the riskiest assumption, the prototype status, the open risks and the implementer profile.
 
 If there is no sliced backlog (slices with a Size), stop and tell the user to run `shape-it` first. Do not give rough estimates of an idea that has not been sliced.
 

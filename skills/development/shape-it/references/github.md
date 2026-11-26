@@ -12,7 +12,7 @@ Read this only after the user confirmed publishing and the tracker is GitHub.
 
 | Backlog | GitHub |
 |---|---|
-| Feature / MVP | One tracking issue titled `[Epic] <name>` whose body is a task list of the slices (checked off as they close) and a link/pointer to `docs/backlog/<slug>/scope.md`. |
+| Feature / MVP | One tracking issue titled `[Epic] <name>` whose body is a task list of the slices (checked off as they close). |
 | Slice | One issue titled `S<N> · <title>`. Body = slice body verbatim (Why, Size, AC, Implementation notes). Last line: `Blocked by: #<n>, #<m>` or `Blocked by: none`. |
 | Size | Label `size:S` / `size:M` if those labels exist; otherwise leave Size in the body only. Do not create labels unless asked. |
 | Later section | Not published. It stays in markdown. |

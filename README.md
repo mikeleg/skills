@@ -60,7 +60,7 @@ workspace-setup  →  shape-it  →  (estimate)  →  implement  →  (bug?) tdd
 ```
 
 1. `workspace-setup` prepares the repo and `CLAUDE.md` once per project.
-2. `shape-it` turns an idea into `docs/backlog/<feature>/scope.md` and `backlog.md`: vertical slices with acceptance criteria checked against a baseline checklist (sessions, uniqueness, lists, uploads, CI...), plus `docs/conventions.md`, the shared code patterns the slices build once and reuse, optionally published as GitHub Issues or Azure DevOps work items.
+2. `shape-it` plans the work as a wayfinder map of decision tickets (Matt Pocock's `mattpocock-skills` plugin), with fixed limits on grilling and tickets, in three profiles: `presales-zero`, `presales-spec`, `feature`. When the map is clear, run `/to-spec` and `/to-tickets`.
 3. `estimate` (optional) turns the backlog into hours of agentic work, as a range per slice and two totals, for a customer quote and for planning.
 4. `implement` takes one slice (`implement S1`) and turns its acceptance criteria into tests, code and a commit, running the `tdd` loop on each criterion; the review is a separate step.
 5. `tdd` builds a feature or fixes a bug test-first, red → green → refactor.

@@ -5,7 +5,7 @@ description: Implement a slice, spec or ticket from its acceptance criteria - ag
 
 # Implement
 
-Turn one unit of agreed work (a slice from `docs/backlog/<feature>/backlog.md`, a ticket, or a spec) into committed, tested code. The acceptance criteria are the contract: every one of them ends up as a test or an explicit, named check.
+Turn one unit of agreed work (a slice, a ticket, or a spec) into committed, tested code. The acceptance criteria are the contract: every one of them ends up as a test or an explicit, named check.
 
 ## 0. Orient
 

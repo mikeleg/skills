@@ -117,7 +117,7 @@ There is no separate questions file. Every open point goes in the "To verify" li
 - Architecture and stack *decided* (what is only scaffolded is written as such).
 - Real build, test, typecheck and run commands. `implement` and other skills read them from here.
 - Provider and flow: dedicated branch, PR with context / what changes / how to verify, the provider's PR commands.
-- Backlog: `docs/backlog/<feature>/`. Run the workflow skills from a session opened in `app/`: they look for `docs/backlog/` and the git remote there; the workspace root is for browsing and `.vscode`.
+- Run the workflow skills from a session opened in `app/`: they look for the git remote there; the workspace root is for browsing and `.vscode`.
 - Workflow: `estimate` (optional) → `implement` (with `/simplify`); `tdd` for test-first work (features or bugs). They come from the `mikeleg-skills` plugin (marketplace `mikeleg/skills`).
 - Security: never print tokens or put them in files; confirm before push, merge, sending, deleting.
 - The 3-line preamble ritual (goal, source of truth, definition of done) before non-trivial work, and the rule "if sources disagree, surface it and ask".
@@ -135,10 +135,10 @@ There is no separate questions file. Every open point goes in the "To verify" li
 - app/  → <remote url or "local">
 - reference/ → raw sources (read-only for the agent); current mocks in reference/mock/current/
 - Project instructions: app/CLAUDE.md
-- Workflow skills (estimate, implement, kets-review): run from a session opened in `app/`, which holds `docs/backlog/` and the git remote; this root is for browsing and `.vscode`.
+- Workflow skills (estimate, implement, kets-review): run from a session opened in `app/`, which holds the git remote; this root is for browsing and `.vscode`.
 ```
 
-`CLAUDE.md` files are loaded into every session, so keep them short: commands, flow and rules for working. Domain terms go in the glossary (`GLOSSARY.md`), decisions in `docs/adr/`, feature scope in `docs/backlog/`. Each fact lives in one place: don't duplicate.
+`CLAUDE.md` files are loaded into every session, so keep them short: commands, flow and rules for working. Domain terms go in the glossary (`GLOSSARY.md`), decisions in `docs/adr/`. Each fact lives in one place: don't duplicate.
 
 ## 6b. Matt Pocock's skills setup
 
