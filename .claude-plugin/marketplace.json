@@ -8,7 +8,7 @@
     {
       "name": "mikeleg-skills",
       "source": "./",
-      "description": "Agent skills by mikeleg: workspace-setup, shape-it, estimate, implement, tdd, codebase-design, kets-review, factory, analyze, log-task-hours, reply-draft, brand-voice, mikeleg-brand, product-video",
+      "description": "Agent skills by mikeleg: workspace-setup, shape-it, estimate, implement, tdd, codebase-design, kets-review, analyze, log-task-hours, reply-draft, brand-voice, mikeleg-brand, product-video",
       "version": "0.20.0",
       "license": "MIT",
       "author": {
@@ -29,7 +29,7 @@
     {
       "name": "kowalski",
       "source": "./",
-      "description": "Kowalski, analysis! Analyzes a ticket, issue or bug report (Azure DevOps, GitHub, Jira or pasted text) and finds where the problem is (/kowalski:analisi). Also /kowalski:pianifica (shape-it), /kowalski:stima (estimate), /kowalski:prepara (workspace-setup), /kowalski:implementa (implement), /kowalski:produci (factory), /kowalski:review (kets-review), /kowalski:email (reply-draft), /kowalski:ore (log-task-hours) and /kowalski:video (product-video).",
+      "description": "Kowalski, analysis! Analyzes a ticket, issue or bug report (Azure DevOps, GitHub, Jira or pasted text) and finds where the problem is (/kowalski:analisi). Also /kowalski:pianifica (shape-it), /kowalski:stima (estimate), /kowalski:prepara (workspace-setup), /kowalski:implementa (implement), /kowalski:review (kets-review), /kowalski:email (reply-draft), /kowalski:ore (log-task-hours) and /kowalski:video (product-video).",
       "version": "0.15.0",
       "license": "MIT",
       "author": {
@@ -42,7 +42,6 @@
         "./plugins/kowalski/skills/prepara",
         "./plugins/kowalski/skills/analisi",
         "./plugins/kowalski/skills/implementa",
-        "./plugins/kowalski/skills/produci",
         "./plugins/kowalski/skills/review",
         "./plugins/kowalski/skills/email",
         "./plugins/kowalski/skills/ore",

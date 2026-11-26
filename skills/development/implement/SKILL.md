@@ -1,6 +1,6 @@
 ---
 name: implement
-description: Implement a slice, spec or ticket from its acceptance criteria - agree the seams, build it test-first by running the tdd loop on each criterion - then check the result against the spec, simplify it, guard the quality floor and commit. It doesn't review: the review is a separate step (factory's fresh review, or /code-review and kets-review run by hand). Use when the user says "implement S1", "build this slice/ticket/story/spec", or hands over a backlog item from shape-it to be coded.
+description: Implement a slice, spec or ticket from its acceptance criteria - agree the seams, build it test-first by running the tdd loop on each criterion - then check the result against the spec, simplify it, guard the quality floor and commit. It doesn't review: the review is a separate step (/code-review and kets-review run by hand). Use when the user says "implement S1", "build this slice/ticket/story/spec", or hands over a backlog item from shape-it to be coded.
 ---
 
 # Implement
@@ -98,5 +98,5 @@ Short, evidence over adjectives:
 - Mutation result from step 3.
 - Spec check findings, what you did with them, and anything removed as unrequested.
 - ADR and glossary conflicts found, what the user chose (supersede or change the slice), and what was written (new ADR number, or the slice updated in `backlog.md`).
-- Not reviewed yet: one line saying to run `/code-review` and `kets-review` on the commit (factory does it in its review).
+- Not reviewed yet: one line saying to run `/code-review` and `kets-review` on the commit.
 - Floor hits, if any, and their justification.

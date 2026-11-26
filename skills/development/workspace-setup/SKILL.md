@@ -1,6 +1,6 @@
 ---
 name: workspace-setup
-description: Set up a development workspace for working with a coding agent - code repo, raw-sources folder, run/debug config and agent instructions - on Azure DevOps, GitHub or local only, for any stack, configures Matt Pocock's skills (setup-matt-pocock-skills), and warns if the workflow skills (estimate, implement, factory, tdd, kets-review) or the mattpocock-skills plugin are missing. Use when the user wants to start a new project, set up or initialize a workspace or repo, onboard an existing repo for agent work, or says "prepare the repo", "set up the project", "init the workspace".
+description: Set up a development workspace for working with a coding agent - code repo, raw-sources folder, run/debug config and agent instructions - on Azure DevOps, GitHub or local only, for any stack, configures Matt Pocock's skills (setup-matt-pocock-skills), and warns if the workflow skills (estimate, implement, tdd, kets-review) or the mattpocock-skills plugin are missing. Use when the user wants to start a new project, set up or initialize a workspace or repo, onboard an existing repo for agent work, or says "prepare the repo", "set up the project", "init the workspace".
 ---
 
 # Workspace setup
@@ -88,7 +88,6 @@ Agents started inside `app/` must be able to read `reference/`: add `"additional
 
 - `git init -b main` in `app/`.
 - No PRs: the flow is dedicated branch → diff review (`git diff main...<branch>`) → `git merge --no-ff` on explicit request.
-- The factory runs locally too: slice branches, local review, merge into `main` when the checkout is clean.
 - Note in `app/CLAUDE.md` how to add a remote later without changing habits.
 
 In every case: a `.gitignore` for build output, dependencies, local device/IDE files and local-only documents.
@@ -119,7 +118,7 @@ There is no separate questions file. Every open point goes in the "To verify" li
 - Real build, test, typecheck and run commands. `implement` and other skills read them from here.
 - Provider and flow: dedicated branch, PR with context / what changes / how to verify, the provider's PR commands.
 - Backlog: `docs/backlog/<feature>/`. Run the workflow skills from a session opened in `app/`: they look for `docs/backlog/` and the git remote there; the workspace root is for browsing and `.vscode`.
-- Workflow: `estimate` (optional) → `implement` (with `/simplify`) or `factory` (which also reviews with `/code-review` and `kets-review`); `tdd` for test-first work (features or bugs). They come from the `mikeleg-skills` plugin (marketplace `mikeleg/skills`).
+- Workflow: `estimate` (optional) → `implement` (with `/simplify`); `tdd` for test-first work (features or bugs). They come from the `mikeleg-skills` plugin (marketplace `mikeleg/skills`).
 - Security: never print tokens or put them in files; confirm before push, merge, sending, deleting.
 - The 3-line preamble ritual (goal, source of truth, definition of done) before non-trivial work, and the rule "if sources disagree, surface it and ask".
 - Read order: `CLAUDE.md` → the glossary (`GLOSSARY.md`, or the right one via `GLOSSARY-MAP.md`) and the ADR titles in `docs/adr/` → code.
@@ -136,7 +135,7 @@ There is no separate questions file. Every open point goes in the "To verify" li
 - app/  → <remote url or "local">
 - reference/ → raw sources (read-only for the agent); current mocks in reference/mock/current/
 - Project instructions: app/CLAUDE.md
-- Workflow skills (estimate, implement, factory, kets-review): run from a session opened in `app/`, which holds `docs/backlog/` and the git remote; this root is for browsing and `.vscode`.
+- Workflow skills (estimate, implement, kets-review): run from a session opened in `app/`, which holds `docs/backlog/` and the git remote; this root is for browsing and `.vscode`.
 ```
 
 `CLAUDE.md` files are loaded into every session, so keep them short: commands, flow and rules for working. Domain terms go in the glossary (`GLOSSARY.md`), decisions in `docs/adr/`, feature scope in `docs/backlog/`. Each fact lives in one place: don't duplicate.
@@ -168,13 +167,12 @@ The workspace is only useful if the agent has the skills that work in it. Check 
 |---|---|---|
 | `estimate` | `mikeleg-skills` plugin | backlog → agentic hours (min / probable / max per slice) |
 | `implement` | `mikeleg-skills` plugin | slice → tested commit |
-| `factory` | `mikeleg-skills` plugin | ready slices (from GitHub issues, Azure DevOps work items or `backlog.md`) → implemented, reviewed, fixed and merged, one at a time |
 | `tdd` | `mikeleg-skills` plugin | red → green → refactor, features or bugs; used by `implement` |
-| `kets-review` | `mikeleg-skills` plugin | design review of a change; used by `factory` |
+| `kets-review` | `mikeleg-skills` plugin | design review of a change |
 | `wayfinder`, `to-spec`, `to-tickets`, `grilling`, `domain-modeling`, `research`, `prototype` | `mattpocock-skills` plugin (marketplace `mattpocock/skills`) | map of decision tickets, then spec and tickets |
-| `/simplify`, `/code-review` | bundled with Claude Code | `/simplify` used by `implement`, `/code-review` by `factory` |
+| `/simplify`, `/code-review` | bundled with Claude Code | `/simplify` used by `implement` |
 
-**Check.** A skill counts as available if it appears in this session's list of available skills, or if its kowalski wrapper does (e.g. `/kowalski:produci` for `factory`). If one is missing, `claude plugin list --json` tells whether `mikeleg-skills@mikeleg` is installed but disabled.
+**Check.** A skill counts as available if it appears in this session's list of available skills, or if its kowalski wrapper does. If one is missing, `claude plugin list --json` tells whether `mikeleg-skills@mikeleg` is installed but disabled.
 
 A skill of `mattpocock-skills` counts as available if its `SKILL.md` is in the plugin cache: `~/.claude/plugins/cache/*/mattpocock-skills/*/skills/*/<skill>/SKILL.md`. The slash commands with `disable-model-invocation` may not appear in the session list. `claude plugin list --json` also tells whether the plugin is installed.
 
@@ -194,6 +192,6 @@ A skill of `mattpocock-skills` counts as available if its `SKILL.md` is in the p
    - Internal packages configured, or recorded as open points
    - `app/CLAUDE.md` and root `CLAUDE.md` written, with real commands
    - Matt Pocock's setup ran, with the files it wrote (`docs/agents/*.md`, the `## Agent skills` block in `app/CLAUDE.md`), or skipped because the plugin is missing
-   - Workflow skills available: `estimate`, `implement`, `factory`, `tdd`, `kets-review`, the `mattpocock-skills` plugin, and the bundled `/simplify`, `/code-review` (missing ones listed with their install command)
+   - Workflow skills available: `estimate`, `implement`, `tdd`, `kets-review`, the `mattpocock-skills` plugin, and the bundled `/simplify`, `/code-review` (missing ones listed with their install command)
 2. List the open points, all recorded in the "To verify" list of `app/CLAUDE.md`.
 3. Ask whether to commit (and push, if there's a remote) the scaffolding of `app/`, with a descriptive message. Never without confirmation.
