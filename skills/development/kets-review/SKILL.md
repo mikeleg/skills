@@ -1,6 +1,6 @@
 ---
 name: kets-review
-description: Review a change (current diff, branch, PR or path) for the design regressions it introduces, or the whole project on request ("project") - spaghetti code and related smells, logic in the wrong place, duplicates of existing helpers, weaker types, pass-through wrappers, contradictions with the project's ADRs (docs/adr/) and glossary (GLOSSARY.md) - judged against the project's own architecture, on any stack and any age of codebase. With --comment, posts the report on the GitHub or Azure DevOps PR. Complements /code-review (bugs). Use when the user asks for a design, quality or structure review of a change, a spaghetti check, "/kets-review", or when factory reaches its review step.
+description: Review a change (current diff, branch, PR or path) for the design regressions it introduces, or the whole project on request ("project") - spaghetti code and related smells, logic in the wrong place, duplicates of existing helpers, weaker types, pass-through wrappers, contradictions with the project's ADRs (docs/adr/) and glossary (GLOSSARY.md) - judged against the project's own architecture, on any stack and any age of codebase. With --comment, posts the report on the GitHub or Azure DevOps PR. Complements /code-review (bugs). Use when the user asks for a design, quality or structure review of a change, a spaghetti check, "/kets-review".
 ---
 
 # Kets Review
