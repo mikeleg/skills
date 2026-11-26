@@ -149,7 +149,6 @@ docs/
   factory-flow.md      # map of the factory flow and its subagents
 skills/
   development/         # workspace-setup, shape-it, estimate, implement, tdd, codebase-design, kets-review, factory, analyze
-    product-wip/       # work in progress, not shipped: product-kickoff, product-decision, product-spec, product-backlog
   work/                # log-task-hours, reply-draft
   content/             # brand-voice, mikeleg-brand, product-video
 plugins/
