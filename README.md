@@ -55,13 +55,13 @@ claude plugin install cruscotto --marketplace mikeleg/skills
 ## How the development skills fit together
 
 ```
-workspace-setup  →  shape-it  →  (estimate)  →  implement  →  (bug?) tdd
+workspace-setup  →  shape-it  →  /to-spec  →  /to-tickets  →  (estimate)  →  implement  →  (bug?) tdd
    the repo          the backlog    the hours      one slice       one fix
 ```
 
 1. `workspace-setup` prepares the repo and `CLAUDE.md` once per project.
 2. `shape-it` plans the work as a wayfinder map of decision tickets (Matt Pocock's `mattpocock-skills` plugin), with fixed limits on grilling and tickets, in three profiles: `presales-zero`, `presales-spec`, `feature`. When the map is clear, run `/to-spec` and `/to-tickets`.
-3. `estimate` (optional) turns the backlog into hours of agentic work, as a range per slice and two totals, for a customer quote and for planning.
+3. `estimate` (optional) turns the tickets into hours of agentic work, as a range per ticket and two totals, for a customer quote and for planning.
 4. `implement` takes one slice (`implement S1`) and turns its acceptance criteria into tests, code and a commit, running the `tdd` loop on each criterion; the review is a separate step.
 5. `tdd` builds a feature or fixes a bug test-first, red → green → refactor.
 6. `kets-review` reviews a change for the design regressions it introduces. `codebase-design` is the shared vocabulary of `tdd`, `implement` and `kets-review`; `brand-voice` is the shared writing voice of the skills that write for a person.
@@ -76,8 +76,8 @@ Each skill also works on its own: `implement` accepts any ticket or spec, `shape
 | Skill | What it does | Requirements |
 | --- | --- | --- |
 | `workspace-setup` | Sets up a workspace for agent work on any stack: code repo, reference folder for raw sources, run/debug config and `CLAUDE.md` with real commands, on Azure DevOps, GitHub or local only. Checks that the workflow skills (`shape-it`, `estimate`, `implement`, `tdd`, `kets-review`, bundled `/simplify`, `/code-review`) are available and warns about the missing ones. | `git`. Optional: `az` with the azure-devops extension, or `gh`, to create repos and PRs. |
-| `shape-it` | Turns a product idea, MVP or feature into a scoped plan and a backlog of vertical slices with acceptance criteria. Writes markdown in the repo, including the glossary (`GLOSSARY.md`) and the ADRs (`docs/adr/`), and can publish the backlog as tickets. | Optional: `gh` or `az` to publish the backlog to GitHub Issues or Azure DevOps Boards. |
-| `estimate` | Estimates the agentic work time (hours of active Claude Code session, not human time) of a shaped backlog: min / probable / max per slice from its Size, widened for open risks, plus analysis, setup, deploy and correction lines. Gives a probable total for planning and a prudent one for a customer quote, writes `estimate.md` next to `scope.md` (and optionally a `summary.md` for a reader who knows nothing about the project), can set `OriginalEstimate` on Azure DevOps work items or an `estimate:<h>h` label on GitHub issues, and suggests recalibrated values from logged actuals. Runs after `shape-it`. | Optional: `az` to read or update Azure DevOps work items, `gh` to label GitHub issues. |
+| `shape-it` | Plans the work as a wayfinder map of decision tickets (Matt Pocock's `mattpocock-skills` plugin) with fixed limits on grilling and tickets, in three profiles: `presales-zero`, `presales-spec`, `feature`. Then run `/to-spec` and `/to-tickets`. | Optional: `gh` or `az` to publish the backlog to GitHub Issues or Azure DevOps Boards. |
+| `estimate` | Estimates the agentic work time (hours of active Claude Code session, not human time) of the tickets from `/to-tickets`: min / probable / max per ticket from a Size it assigns, widened for open risks, plus analysis, setup, deploy and correction lines. Gives a probable total for planning and a prudent one for a customer quote, writes `estimate.md` next to `spec.md` (and optionally a `summary.md` for a reader who knows nothing about the project), can set `OriginalEstimate` on Azure DevOps work items or an `estimate:<h>h` label on GitHub issues, and suggests recalibrated values from logged actuals. Runs after `/to-tickets`. | Optional: `az` to read or update Azure DevOps work items, `gh` to label GitHub issues. |
 | `implement` | Implements a slice, spec or ticket test-first from its acceptance criteria, checks the result against the spec, simplifies it, guards the quality floor (no new suppressions, skipped tests or removed assertions) and commits. It doesn't review: run `/code-review` and `kets-review` yourself. | Claude Code (uses the `/simplify` skill when available). |
 | `tdd` | Builds a feature or fixes a bug test-first in the red → green → refactor loop: tests at agreed seams, one vertical slice at a time, refactor only on green. Adapted from Matt Pocock's `tdd` skill (MIT). | None. |
 | `codebase-design` | Shared vocabulary for designing deep modules (module, interface, seam, adapter, depth), where a vertical slice is a module, plus clean code rules for the code inside a module. Used by `tdd` and `implement`. Adapted from Matt Pocock's `codebase-design` skill (MIT). | None. |

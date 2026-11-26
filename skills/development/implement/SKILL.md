@@ -9,7 +9,7 @@ Turn one unit of agreed work (a slice, a ticket, or a spec) into committed, test
 
 ## 0. Orient
 
-- Find the work: the slice/ticket/spec the user named. If it came from shape-it, also read `scope.md` (non-goals matter for the spec check).
+- Find the work: the slice/ticket/spec the user named. If it is a ticket from `/to-tickets`, also read its spec (`.scratch/<feature-slug>/spec.md`): its Out of Scope matters for the spec check.
 - Read `CLAUDE.md`/`AGENTS.md` and the project's test and typecheck commands. Never ask what you can read.
 - Note how the code is organized: by feature (a new repo counts as this) or by technical layer (Controllers/Services/Repositories). The folder rule in tdd depends on it; the final report says which structure the work followed.
 - Read `${CLAUDE_SKILL_DIR}/../tdd/SKILL.md`, with the `tests.md` and `mocking.md` next to it: steps 1 and 2 follow it. If that file isn't there, use the `tdd` skill if this session lists it; otherwise work red → green → refactor without it and say so in the final report.
@@ -24,7 +24,7 @@ Turn one unit of agreed work (a slice, a ticket, or a spec) into committed, test
 
 Tests go only at agreed seams; tdd says what a seam is and how to propose one.
 
-- If the slice lists **Seams** (shape-it writes them), they are already agreed: map each acceptance criterion to a seam and go.
+- If the spec's Testing Decisions name the **seams** (`/to-spec` agrees them with the user), they are already agreed: map each acceptance criterion to a seam and go.
 - If it doesn't, propose them in one message as tdd says, a seam and a test for each acceptance criterion. Wait for the user's ok. This is the planned stop; the others are a dirty working tree (step 0), an ADR conflict (steps 0, 2 and 4) and a slice that duplicates another (see the Duplication rule in codebase-design).
 
 ## 2. Build it with tdd, one criterion at a time
@@ -55,7 +55,7 @@ If a mutation stays green, a test is missing or asserting the wrong thing. Add o
 Launch a subagent with a fresh context. Give it:
 
 - the diff: `git add -N <new files of this work> && git diff <base>` (`add -N` makes new files show up without staging their content);
-- the full text of the slice/ticket/spec, plus the non-goals from `scope.md` if there is one;
+- the full text of the slice/ticket/spec, plus the Out of Scope of its spec if there is one;
 - the relevant accepted ADRs (see step 0) and the glossary, if there are any.
 
 Brief: *"Report (a) acceptance criteria that are missing or only partly implemented; (b) behavior in the diff nobody asked for, including anything listed as a non-goal; (c) criteria that look implemented but where the implementation looks wrong; (d) places where the diff contradicts an accepted ADR or, in a name of a domain concept the change adds (types, functions, variables, test names, UI text), uses a term the glossary lists under _Avoid_ (not names from external APIs, libraries, frameworks or existing contracts at the boundary, nor code the change doesn't touch); quote the ADR or glossary line. Quote the criterion or non-goal line for each other finding. Zero findings is a valid answer. Under 300 words."*
@@ -86,7 +86,7 @@ Adapt the patterns to the stack if it uses others. Every hit is either removed o
 
 ## 7. Commit
 
-Commit to the current branch. The message says what the change does and why; it also names any floor exception from step 6. A decision taken during the work that passes the three-criteria test in `${CLAUDE_SKILL_DIR}/../shape-it/references/domain-docs.md` gets its ADR in `docs/adr/` in the same commit. When the work is a slice from a shape-it `backlog.md`, add `**Status:** done` to that slice (next to Size) and include that change in the same commit.
+Commit to the current branch. The message says what the change does and why; it also names any floor exception from step 6. A decision taken during the work that passes the three-criteria test in `${CLAUDE_SKILL_DIR}/../shape-it/references/domain-docs.md` gets its ADR in `docs/adr/` in the same commit. When the work is a ticket file from `/to-tickets`, set its `**Status:**` line to `done` and include that change in the same commit.
 
 ## Final report
 
@@ -97,6 +97,6 @@ Short, evidence over adjectives:
 - Duplications between slices that were flagged, and what the user chose.
 - Mutation result from step 3.
 - Spec check findings, what you did with them, and anything removed as unrequested.
-- ADR and glossary conflicts found, what the user chose (supersede or change the slice), and what was written (new ADR number, or the slice updated in `backlog.md`).
+- ADR and glossary conflicts found, what the user chose (supersede or change the slice), and what was written (new ADR number, or the ticket updated).
 - Not reviewed yet: one line saying to run `/code-review` and `kets-review` on the commit.
 - Floor hits, if any, and their justification.
