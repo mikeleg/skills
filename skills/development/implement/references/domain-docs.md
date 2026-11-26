@@ -18,7 +18,6 @@ Always these paths:
 - `GLOSSARY.md` at the repo root (single context).
 - If `GLOSSARY-MAP.md` exists at the root, the repo has several contexts: the map lists where each context's `GLOSSARY.md` lives. Pick the context the feature belongs to; ask if unclear.
 - ADRs in `docs/adr/NNNN-slug.md`, numbered sequentially: scan `docs/adr/` for the highest number, add 1.
-- Greenfield mode without a repo: same files in the working folder.
 
 Create both lazily: `GLOSSARY.md` when the first term exists, `docs/adr/` when the first ADR exists. No empty files, no placeholders.
 
@@ -94,7 +93,7 @@ What usually qualifies:
 - Constraints not visible in the code.
 - Rejected alternatives that someone would otherwise propose again.
 
-Not an ADR: anything easy to reverse, the order of the slices, the in / out list of this round (that is `scope.md`). Often a feature yields zero or one ADR. Never pad.
+Not an ADR: anything easy to reverse, the order of the tickets, the in / out list of this round (that is the spec). Often a feature yields zero or one ADR. Never pad.
 
 ## Superseding an ADR
 
