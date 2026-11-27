@@ -2,7 +2,7 @@
 name: shape-it
 description: >-
   Plan a big chunk of work as a wayfinder map with fixed limits on grilling rounds and tickets. Use it for a pre-sales estimate of a new project (with zero specifications or with some or full specifications) and for new features on an existing project. Also use it to continue a map ("work through the map"). Trigger phrases: "shape it", "plan this feature", "I have an idea", "scope the MVP", "break this down", "estimate a new project", "pre-sales estimate", "pianifica", "stima per un nuovo progetto", "nuova feature", "lavora sulla mappa".
-argument-hint: "<presales-zero|presales-spec|feature> <idea, spec path, or map path/URL [ticket]>"
+argument-hint: "<zero-spec|with-spec|feature> <idea, spec path, or map path/URL [ticket]>"
 ---
 
 # Shape It
@@ -15,8 +15,8 @@ Reply to the user in the user's language. Write the map and the tickets in Engli
 
 The profile is the first word of `$ARGUMENTS`. The rest of `$ARGUMENTS` is the user's request. If the profile is missing or unknown, ask the user which one applies.
 
-- `presales-zero`: pre-sales estimate for a new project with zero specifications.
-- `presales-spec`: pre-sales estimate for a new project with some or full specifications. Read the specifications first. Extract the decisions they already make. Do not ask these again.
+- `zero-spec`: pre-sales estimate for a new project with zero specifications.
+- `with-spec`: pre-sales estimate for a new project with some or full specifications. Read the specifications first. Extract the decisions they already make. Do not ask these again.
 - `feature`: new features on an existing project. Read these first: `README`, `CLAUDE.md` or `AGENTS.md`, `GLOSSARY.md`, `docs/adr/`, `docs/conventions.md`. The decisions recorded there are already made.
 
 The user is the consultant. The consultant is not the client.
@@ -47,8 +47,8 @@ These directives override wayfinder and every skill it calls.
 
 | Profile | Max tickets at charting (M) | Max grilling rounds per session (N) | domain-modeling |
 |---|---|---|---|
-| `presales-zero` | 6 | 2 | Off. Create no `GLOSSARY.md` or ADR file before the contract is signed. Keep the terms in the map. |
-| `presales-spec` | 5 | 2 | Off, as above. |
+| `zero-spec` | 6 | 2 | Off. Create no `GLOSSARY.md` or ADR file before the contract is signed. Keep the terms in the map. |
+| `with-spec` | 5 | 2 | Off, as above. |
 | `feature` | 5 | 2 | On. Read and update `GLOSSARY.md` and ADRs as `domain-modeling` says. |
 
 The numbers are assumptions. Change them here.
